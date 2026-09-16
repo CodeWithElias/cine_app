@@ -47,6 +47,12 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
   bool _isMuted = false;
   CanvasView _canvasView = CanvasView.none;
 
+  // Un solo id para toda esta pantalla de voz (se recrea si se vuelve a
+  // entrar) — agrupa los turnos de una misma conversacion para el FSM de
+  // confirmacion del orquestador (RF19). Mismo criterio que
+  // VoiceAgent.tsx (sesionIdRef) en el frontend web.
+  final String _sesionId = DateTime.now().microsecondsSinceEpoch.toString();
+
   bool get _isActive => _orbState == OrbState.listening || _orbState == OrbState.speaking;
 
   @override
@@ -111,6 +117,8 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
       final result = await _voiceApi.sendVoiceMessage(
         audioPath: audioPath,
         outputPath: outputPath,
+        rol: AuthService.instance.usuario?.rol ?? 'cliente',
+        sesionId: _sesionId,
       );
       _updateCanvasFromTranscript(result.transcript);
       await _player.play(DeviceFileSource(result.audioPath));

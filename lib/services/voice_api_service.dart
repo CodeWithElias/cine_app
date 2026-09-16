@@ -32,12 +32,23 @@ class VoiceApiException implements Exception {
 class VoiceApiService {
   /// Envia el audio grabado (archivo en [audioPath]) al agente y guarda la
   /// respuesta en un archivo temporal (.wav) en [outputPath].
+  ///
+  /// [rol] y [sesionId] son obligatorios en el backend (RF11: el agente
+  /// necesita saber quien habla antes de decidir que puede hacer) - mismo
+  /// contrato que usa el frontend web (ver src/api/voice.api.ts). [sesionId]
+  /// debe ser el mismo durante toda una conversacion (lo genera y reusa
+  /// VoiceScreen), no uno nuevo por mensaje, porque el orquestador guarda el
+  /// estado de confirmacion (RF19) por sesion.
   Future<VoiceChatResult> sendVoiceMessage({
     required String audioPath,
     required String outputPath,
+    required String rol,
+    required String sesionId,
   }) async {
     final uri = Uri.parse('$kVoiceAgentUrl/voice-chat');
     final request = http.MultipartRequest('POST', uri)
+      ..fields['rol'] = rol
+      ..fields['sesion_id'] = sesionId
       ..files.add(await http.MultipartFile.fromPath('audio', audioPath));
 
     final http.StreamedResponse streamed;
