@@ -130,6 +130,9 @@ class AuthService {
       final nombre = payload['nombre'];
       final rol = payload['rol'];
       if (sub is! int || nombre is! String || rol is! String) return null;
+      // Un token vencido (el backend los emite por 8 horas) no sirve: se pide iniciar sesion de nuevo.
+      final exp = payload['exp'];
+      if (exp is int && DateTime.fromMillisecondsSinceEpoch(exp * 1000).isBefore(DateTime.now())) return null;
       return Usuario(idUsuario: sub, nombre: nombre, rol: rol);
     } catch (_) {
       return null;

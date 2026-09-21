@@ -1,32 +1,42 @@
 import 'dart:async';
+import 'dart:convert';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:record/record.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../offline/gestor_modelos.dart';
+import '../offline/sin_conexion.dart';
 import '../services/auth_service.dart';
-import '../services/voice_api_service.dart';
+import '../services/cine_api.dart';
+import '../services/pagos_stripe.dart';
+import '../services/voice_session.dart';
+import '../state/cine_state.dart';
+import '../state/ui_action_handler.dart';
+import '../state/ui_control.dart';
 import '../theme/app_theme.dart';
-import '../widgets/butacas_grid.dart';
-import '../widgets/cartelera_carousel.dart';
+import '../views/cartelera_view.dart';
+import '../views/compra_view.dart';
+import '../views/inicio_view.dart';
+import '../views/mis_compras_view.dart';
 import '../widgets/edge_rings_painter.dart';
-import '../widgets/manipulable_canvas.dart';
+import '../widgets/ventanas_layer.dart';
 import 'login_screen.dart';
+import 'modo_sin_conexion_screen.dart';
 
-const double _kButtonSize = 96;
-const double _kButtonBottomMargin = 28;
+const double _kButtonSize = 88;
+const double _kButtonBottomMargin = 20;
 
-enum OrbState { idle, listening, thinking, speaking }
+/// Alto que ocupa el cuadro de subtitulos (lo que se entendio + la respuesta del asistente) cuando hay algo que mostrar.
+const double _kAltoSubtitulos = 104;
 
-/// Lo que el canvas generativo esta mostrando ahora mismo, segun lo ultimo
-/// que el usuario pidio por voz. 'none' = todavia no pidio nada.
-enum CanvasView { none, cartelera, butacas }
-
-/// Pantalla de voz minimalista: solo el boton central y, detras, el canvas
-/// generativo con lo que el usuario va pidiendo (cartelera, butacas, etc.).
-/// Sin barras ni texto de estado permanente - el propio boton (icono, color,
-/// anillos) comunica si esta escuchando, pensando o respondiendo.
+/// Modo "Voz + UI dinamica" del cliente: una conversacion continua con el agente
+/// (WebSocket) mientras la pantalla se mueve sola con lo que va pidiendo
+/// (cartelera, asientos, dulceria, compra) y sigue siendo tactil. El boton de
+/// abajo abre y cierra la conversacion.
+///
+/// Es el equivalente movil de `VoiceAgent.tsx` + `VoiceSessionProvider.tsx` +
+/// `useUiActionHandler.ts` del frontend web.
 class VoiceScreen extends StatefulWidget {
   const VoiceScreen({super.key});
 
@@ -35,302 +45,474 @@ class VoiceScreen extends StatefulWidget {
 }
 
 class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin {
-  final _recorder = AudioRecorder();
-  final _player = AudioPlayer();
-  final _voiceApi = VoiceApiService();
+  late final CineState _cine;
+  late final UiControl _ui;
+  late final UiActionHandler _handler;
+  late final VoiceSession _voz;
+  final PagosStripe _pagos = PagosStripe();
+  final GestorModelos _gestor = GestorModelos.instance;
+  late final SinConexion _sinConexion = SinConexion(_gestor);
 
   late final AnimationController _ringController;
   late final AnimationController _pulseController;
-  StreamSubscription<PlayerState>? _playerSub;
 
-  OrbState _orbState = OrbState.idle;
-  bool _isMuted = false;
-  CanvasView _canvasView = CanvasView.none;
-
-  // Un solo id para toda esta pantalla de voz (se recrea si se vuelve a
-  // entrar) — agrupa los turnos de una misma conversacion para el FSM de
-  // confirmacion del orquestador (RF19). Mismo criterio que
-  // VoiceAgent.tsx (sesionIdRef) en el frontend web.
+  // Un solo id para toda esta pantalla (agrupa los turnos de la conversacion para el FSM de confirmacion del agente, RF19).
   final String _sesionId = DateTime.now().microsecondsSinceEpoch.toString();
 
-  bool get _isActive => _orbState == OrbState.listening || _orbState == OrbState.speaking;
+  /// Version de la ultima tanda de acciones del servidor que la pantalla ya aplico (ver `contexto`).
+  int _versionUi = 0;
+  Timer? _pausaContexto;
+  String? _ultimoContexto;
 
   @override
   void initState() {
     super.initState();
-    _ringController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 14),
-    )..repeat();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
+    _cine = CineState(CineApi());
+    _ui = UiControl();
+    _handler = UiActionHandler(
+      cine: _cine,
+      ui: _ui,
+      alAplicar: (v) {
+        _versionUi = v;
+        _programarContexto(inmediato: true);
+      },
+    );
+    _voz = VoiceSession(sesionId: _sesionId, onUiAction: _handler.aplicar, sinConexion: _sinConexion)..addListener(_alCambiarVoz);
+    _cine.addListener(_programarContexto);
+    CineApi.onSesionVencida = _sesionVencida;
+    // Stripe: la clave publicable la sirve el backend. Si hay tarjeta, el agente puede ofrecerla (`pantalla`).
+    _pagos.iniciar(_cine.api).then((_) => _voz.setTarjetaDisponible(_pagos.habilitado));
+    _gestor.iniciar().then((_) => _ofrecerModoSinConexion());
 
-    _playerSub = _player.onPlayerStateChanged.listen((state) {
-      if (!mounted) return;
-      if (state == PlayerState.playing) {
-        setState(() => _orbState = OrbState.speaking);
-      } else if (state == PlayerState.completed || state == PlayerState.stopped) {
-        setState(() => _orbState = OrbState.idle);
-      }
-    });
+    _ringController = AnimationController(vsync: this, duration: const Duration(seconds: 14))..repeat();
+    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _playerSub?.cancel();
+    if (CineApi.onSesionVencida == _sesionVencida) CineApi.onSesionVencida = null;
+    _pausaContexto?.cancel();
+    _cine.removeListener(_programarContexto);
+    _voz.removeListener(_alCambiarVoz);
     _ringController.dispose();
     _pulseController.dispose();
-    _recorder.dispose();
-    _player.dispose();
+    _voz.dispose();
+    _pagos.dispose();
+    _ui.dispose();
+    _cine.dispose();
     super.dispose();
   }
 
-  Future<void> _startRecording() async {
-    try {
-      if (!await _recorder.hasPermission()) {
-        _showError('No se pudo acceder al micrófono. Revisa los permisos de la app.');
-        return;
+  // ------------------------------------------------------------------ contexto de la compra
+
+  /// El agente no ve lo que el cliente marca TOCANDO la pantalla: se le cuenta (solo ids) cada vez que cambia,
+  /// y al abrirse la conversacion. Va con la version de lo ultimo que el servidor mando y la pantalla ya aplico:
+  /// asi el servidor descarta una foto de ANTES de un cambio suyo.
+  void _programarContexto({bool inmediato = false}) {
+    _pausaContexto?.cancel();
+    if (!_voz.conversando) return;
+    if (inmediato) {
+      _enviarContexto();
+    } else {
+      _pausaContexto = Timer(const Duration(milliseconds: 350), _enviarContexto);
+    }
+  }
+
+  void _enviarContexto() {
+    if (!_voz.conversando) return;
+    final compra = _cine.contexto();
+    final clave = '$_versionUi|${jsonEncode(compra)}';
+    if (clave == _ultimoContexto) return;
+    _ultimoContexto = clave;
+    _voz.enviarContexto(_versionUi, compra);
+  }
+
+  EstadoConversacion? _estadoVisto;
+
+  void _alCambiarVoz() {
+    final estado = _voz.estado;
+    if (estado != _estadoVisto) {
+      final abrio = !_voz.conversando ? false : (_estadoVisto == null || _estadoVisto == EstadoConversacion.conectando || _estadoVisto == EstadoConversacion.apagada);
+      _estadoVisto = estado;
+      if (abrio) {
+        _ultimoContexto = null; // conversacion nueva (o reconectada): se vuelve a contar lo marcado
+        _programarContexto(inmediato: true);
       }
-      final dir = await getTemporaryDirectory();
-      final path = '${dir.path}/lumen_pregunta_${DateTime.now().millisecondsSinceEpoch}.wav';
-      await _recorder.start(const RecordConfig(encoder: AudioEncoder.wav), path: path);
-      setState(() => _orbState = OrbState.listening);
-    } catch (e) {
-      _showError('No se pudo acceder al micrófono. Revisa los permisos de la app.');
+      if (estado == EstadoConversacion.error && mounted && _voz.error != null) _mostrarError(_voz.error!);
     }
   }
 
-  Future<void> _stopRecording() async {
-    final path = await _recorder.stop();
-    if (path != null) {
-      await _sendToAgent(path);
-    }
-  }
+  // ------------------------------------------------------------------ acciones
 
-  Future<void> _sendToAgent(String audioPath) async {
-    setState(() => _orbState = OrbState.thinking);
-    try {
-      final dir = await getTemporaryDirectory();
-      final outputPath = '${dir.path}/lumen_respuesta_${DateTime.now().millisecondsSinceEpoch}.wav';
-      final result = await _voiceApi.sendVoiceMessage(
-        audioPath: audioPath,
-        outputPath: outputPath,
-        rol: AuthService.instance.usuario?.rol ?? 'cliente',
-        sesionId: _sesionId,
-      );
-      _updateCanvasFromTranscript(result.transcript);
-      await _player.play(DeviceFileSource(result.audioPath));
-    } catch (e) {
-      setState(() => _orbState = OrbState.idle);
-      _showError(e is VoiceApiException ? e.message : 'No se pudo hablar con el agente.');
-    }
-  }
-
-  /// Deteccion de intencion por palabras clave sobre lo que dijo el usuario.
-  /// Mock: no depende de un backend de catalogo todavia. Si no reconoce
-  /// ningun pedido, deja el canvas como estaba (no interrumpe lo que ya se
-  /// estaba mostrando).
-  void _updateCanvasFromTranscript(String text) {
-    final t = text.toLowerCase();
-    final pideCartelera = t.contains('cartelera') || t.contains('película') || t.contains('peliculas') || t.contains('películas');
-    final pideButacas = t.contains('butaca') || t.contains('asiento');
-
-    if (pideCartelera) {
-      setState(() => _canvasView = CanvasView.cartelera);
-    } else if (pideButacas) {
-      setState(() => _canvasView = CanvasView.butacas);
-    }
-  }
-
-  void _showError(String message) {
+  void _mostrarError(String mensaje) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: LumenColors.errorContainer,
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(mensaje), backgroundColor: LumenColors.errorContainer, behavior: SnackBarBehavior.floating),
     );
   }
 
-  void _handleOrbTap() {
-    if (_isMuted) return;
-    if (_orbState == OrbState.idle) {
-      _startRecording();
-    } else if (_orbState == OrbState.listening) {
-      _stopRecording();
+  void _tocarBoton() {
+    switch (_voz.estado) {
+      case EstadoConversacion.apagada:
+      case EstadoConversacion.error:
+        _voz.iniciar();
+      case EstadoConversacion.hablando:
+        _voz.interrumpir(); // corta al asistente y sigue escuchando
+      case EstadoConversacion.conectando:
+      case EstadoConversacion.escuchando:
+      case EstadoConversacion.pensando:
+        _voz.terminar();
     }
   }
 
-  void _toggleMute() {
-    if (!_isMuted && _orbState == OrbState.listening) {
-      _stopRecording();
-    }
-    setState(() => _isMuted = !_isMuted);
+  void _alternarSilencio() => _voz.silenciar(!_voz.silenciado);
+
+  void _abrirModoSinConexion() {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ModoSinConexionScreen(gestor: _gestor, api: _cine.api)));
   }
 
-  Future<void> _confirmLogout() async {
+  /// La primera vez se le ofrece al cliente llevar los modelos al telefono (es opcional); si dice que no, no se vuelve a preguntar.
+  Future<void> _ofrecerModoSinConexion() async {
+    if (!mounted || _gestor.listoParaVoz || _gestor.descargando) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('sinconexion_ofrecido') ?? false) return;
+    await prefs.setBool('sinconexion_ofrecido', true);
+    if (!mounted) return;
+    final elegir = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: LumenColors.surfaceContainer,
+        icon: const Icon(Icons.cloud_off_outlined, color: LumenColors.secondary),
+        title: const Text('¿Usar Lumen sin internet?', style: TextStyle(color: LumenColors.onSurface)),
+        content: const Text(
+          'Puedes descargar los modelos de voz al teléfono (unos 190 MB) para hablar con Lumen y consultar la cartelera aunque no tengas internet. Es opcional y lo puedes hacer más tarde desde el inicio.',
+          style: TextStyle(color: LumenColors.onSurfaceVariant, height: 1.35),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Ahora no')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Elegir')),
+        ],
+      ),
+    );
+    if (elegir == true && mounted) _abrirModoSinConexion();
+  }
+
+  bool _silenciadoAntesDelTrailer = false;
+
+  /// Mientras suena un trailer el microfono se silencia (el video se oiria como si fuera el cliente hablando) y al
+  /// cerrarlo vuelve a como estaba.
+  void _alTrailer(bool abierto) {
+    if (abierto) {
+      _silenciadoAntesDelTrailer = _voz.silenciado;
+      _voz.silenciar(true);
+    } else {
+      _voz.silenciar(_silenciadoAntesDelTrailer);
+    }
+  }
+
+  bool _cerrandoPorVencimiento = false;
+
+  /// El backend rechazo el token: la sesion vencio. Se vuelve al login (como hace la web con `auth:unauthorized`).
+  Future<void> _sesionVencida() async {
+    if (_cerrandoPorVencimiento || !mounted) return;
+    _cerrandoPorVencimiento = true;
+    await _voz.terminar();
+    await AuthService.instance.logout();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tu sesión venció. Inicia sesión de nuevo.')));
+    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
+  }
+
+  Future<void> _confirmarCerrarSesion() async {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: LumenColors.surfaceContainer,
         title: const Text('Cerrar sesión', style: TextStyle(color: LumenColors.onSurface)),
-        content: const Text(
-          '¿Quieres cerrar sesión?',
-          style: TextStyle(color: LumenColors.onSurfaceVariant),
-        ),
+        content: const Text('¿Quieres cerrar sesión?', style: TextStyle(color: LumenColors.onSurfaceVariant)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Cerrar sesión', style: TextStyle(color: LumenColors.error)),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Cerrar sesión', style: TextStyle(color: LumenColors.error))),
         ],
       ),
     );
     if (confirmar == true) {
+      await _voz.terminar();
       await AuthService.instance.logout();
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
-      );
+      Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
     }
   }
 
-  IconData get _orbIcon {
-    if (_isMuted) return Icons.mic_off;
-    switch (_orbState) {
-      case OrbState.listening:
-        return Icons.stop_circle;
-      case OrbState.thinking:
-        return Icons.more_horiz;
-      case OrbState.speaking:
-        return Icons.graphic_eq;
-      case OrbState.idle:
-        return Icons.mic;
-    }
-  }
+  // ------------------------------------------------------------------ interfaz
 
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
-    final anchor = Offset(
-      mq.size.width / 2,
-      mq.size.height - mq.padding.bottom - _kButtonBottomMargin - _kButtonSize / 2,
-    );
+    final reserva = _kButtonSize + _kButtonBottomMargin + mq.padding.bottom + 16;
+    final anchor = Offset(mq.size.width / 2, mq.size.height - mq.padding.bottom - _kButtonBottomMargin - _kButtonSize / 2);
 
-    return Scaffold(
-      backgroundColor: LumenColors.surfaceContainerLowest,
-      body: Stack(
-        children: [
-          Positioned.fill(child: SafeArea(child: _buildCanvas())),
-          Positioned.fill(child: _buildEdgeRings(anchor)),
-          Positioned(
-            bottom: _kButtonBottomMargin + mq.padding.bottom,
-            left: 0,
-            right: 0,
-            child: Center(child: _buildOrb()),
-          ),
-        ],
+    return ListenableBuilder(
+      listenable: _cine,
+      builder: (context, _) => PopScope(
+        // Atras vuelve al inicio de la app antes de salir de ella.
+        canPop: _cine.pantalla == Pantalla.inicio,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _cine.irA(Pantalla.inicio);
+        },
+        child: Scaffold(
+          backgroundColor: LumenColors.surfaceContainerLowest,
+          body: Stack(children: [
+            SafeArea(
+              bottom: false,
+              child: Column(children: [
+                ListenableBuilder(
+                  listenable: _voz,
+                  builder: (_, _) => _Cabecera(cine: _cine, onCerrarSesion: _confirmarCerrarSesion, sinConexion: _voz.modoLocal),
+                ),
+                Expanded(child: Padding(padding: EdgeInsets.only(bottom: _cine.pantalla == Pantalla.compra ? 0 : reserva), child: _vista())),
+                // En la compra la barra de resumen (asientos, total, Cancelar/Continuar) va pegada abajo: se le reserva el espacio
+                // del boton del asistente Y, cuando hay algo que decir, el de los subtitulos, para que nada se tape.
+                if (_cine.pantalla == Pantalla.compra)
+                  ListenableBuilder(
+                    listenable: _voz,
+                    builder: (_, _) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      height: reserva + (_lineasSubtitulo(_voz).visible ? _kAltoSubtitulos : 0),
+                    ),
+                  ),
+              ]),
+            ),
+            Positioned.fill(child: _anillos(anchor)),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: reserva - 4,
+              child: SizedBox(height: _kAltoSubtitulos, child: Align(alignment: Alignment.bottomCenter, child: _Subtitulos(voz: _voz))),
+            ),
+            VentanasLayer(ui: _ui, reservaInferior: reserva + 6, onDecir: _voz.enviarTexto),
+            Positioned(
+              bottom: _kButtonBottomMargin + mq.padding.bottom,
+              left: 0,
+              right: 0,
+              child: Center(child: _boton()),
+            ),
+          ]),
+        ),
       ),
     );
   }
 
-  Widget _buildEdgeRings(Offset anchor) {
-    return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: _ringController,
-        builder: (context, _) {
-          final intensity = _isActive ? 1.0 : 0.25;
-          return CustomPaint(
+  Widget _vista() {
+    final nombre = AuthService.instance.usuario?.nombre ?? 'cliente';
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      transitionBuilder: (child, animation) => FadeTransition(opacity: CurvedAnimation(parent: animation, curve: Curves.easeOutCubic), child: child),
+      child: switch (_cine.pantalla) {
+        Pantalla.inicio => ListenableBuilder(
+            key: const ValueKey('inicio'),
+            listenable: _voz,
+            builder: (_, _) => InicioView(cine: _cine, nombre: nombre, conversando: _voz.conversando, gestor: _gestor, onSinConexion: _abrirModoSinConexion),
+          ),
+        Pantalla.cartelera => CarteleraView(key: const ValueKey('cartelera'), cine: _cine, ui: _ui, alTrailer: _alTrailer),
+        Pantalla.compra => CompraView(
+            key: const ValueKey('compra'),
+            cine: _cine,
+            ui: _ui,
+            pagos: _pagos,
+            onPagoCampos: (id, campos) {
+              if (_voz.conversando) _voz.enviarPagoCampos(id, campos);
+            },
+            onPagoEvento: (id, evento, [mensaje]) {
+              if (_voz.conversando) _voz.enviarPagoEvento(id, evento, mensaje);
+            },
+          ),
+        Pantalla.misCompras => MisComprasView(key: const ValueKey('mis_compras'), cine: _cine),
+      },
+    );
+  }
+
+  Widget _anillos(Offset anchor) => IgnorePointer(
+        child: ListenableBuilder(
+          listenable: Listenable.merge([_ringController, _voz]),
+          builder: (context, _) => CustomPaint(
             painter: EdgeRingsPainter(
               anchor: anchor,
               shimmer: _ringController.value,
-              intensity: intensity,
+              intensity: _voz.conversando ? 1.0 : 0.25,
               colorA: LumenColors.primaryContainer,
               colorB: LumenColors.secondary,
             ),
-          );
-        },
-      ),
-    );
-  }
+          ),
+        ),
+      );
 
-  Widget _buildCanvas() {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 450),
-      transitionBuilder: (child, animation) {
-        final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
-        return FadeTransition(
-          opacity: curved,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
-            child: child,
+  Widget _boton() {
+    return ListenableBuilder(
+      listenable: _voz,
+      builder: (context, _) {
+        final silenciado = _voz.silenciado;
+        final activa = _voz.conversando;
+        final gradiente = silenciado
+            ? const LinearGradient(colors: [LumenColors.surfaceContainer, LumenColors.surfaceContainerHigh])
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [LumenColors.surfaceContainer, LumenColors.primaryContainer, LumenColors.secondary],
+              );
+
+        final IconData icono;
+        if (silenciado && activa) {
+          icono = Icons.mic_off;
+        } else {
+          icono = switch (_voz.estado) {
+            EstadoConversacion.apagada => Icons.mic,
+            EstadoConversacion.conectando => Icons.more_horiz,
+            EstadoConversacion.escuchando => Icons.graphic_eq,
+            EstadoConversacion.pensando => Icons.more_horiz,
+            EstadoConversacion.hablando => Icons.stop_rounded,
+            EstadoConversacion.error => Icons.refresh,
+          };
+        }
+
+        return GestureDetector(
+          onTap: _tocarBoton,
+          onLongPress: _confirmarCerrarSesion,
+          onDoubleTap: _voz.activa ? _alternarSilencio : null,
+          child: AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              final latido = (activa && (_voz.usuarioHablando || _voz.estado == EstadoConversacion.hablando)) ? 1 + _pulseController.value * 0.09 : 1.0;
+              return Transform.scale(scale: latido, child: child);
+            },
+            child: Container(
+              width: _kButtonSize,
+              height: _kButtonSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: gradiente,
+                boxShadow: silenciado
+                    ? const []
+                    : [BoxShadow(color: LumenColors.primaryContainer.withValues(alpha: activa ? 0.6 : 0.35), blurRadius: 44, spreadRadius: 2)],
+              ),
+              child: Icon(icono, size: 38, color: silenciado ? LumenColors.onSurfaceVariant : LumenColors.onPrimaryContainer),
+            ),
           ),
         );
       },
-      child: switch (_canvasView) {
-        CanvasView.cartelera => SizedBox.expand(
-            key: const ValueKey('cartelera'),
-            child: ManipulableCanvas(child: const CarteleraCarousel()),
-          ),
-        CanvasView.butacas => SizedBox.expand(
-            key: const ValueKey('butacas'),
-            child: ManipulableCanvas(child: const Center(child: ButacasGrid())),
-          ),
-        CanvasView.none => const SizedBox.expand(key: ValueKey('idle')),
-      },
     );
   }
+}
 
-  Widget _buildOrb() {
-    final Gradient gradient = _isMuted
-        ? const LinearGradient(colors: [LumenColors.surfaceContainer, LumenColors.surfaceContainerHigh])
-        : const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [LumenColors.surfaceContainer, LumenColors.primaryContainer, LumenColors.secondary],
-          );
+// ---------------------------------------------------------------------------- cabecera
 
-    return GestureDetector(
-      onTap: _handleOrbTap,
-      onLongPress: _confirmLogout,
-      onDoubleTap: _toggleMute,
-      child: AnimatedBuilder(
-        animation: _pulseController,
-        builder: (context, child) {
-          final scale = _isActive ? 1 + (_pulseController.value * 0.08) : 1.0;
-          return Transform.scale(scale: scale, child: child);
-        },
-        child: Container(
-          width: _kButtonSize,
-          height: _kButtonSize,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: gradient,
-            boxShadow: _isMuted
-                ? []
-                : [
-                    BoxShadow(
-                      color: LumenColors.primaryContainer.withValues(alpha: 0.5),
-                      blurRadius: 50,
-                      spreadRadius: 2,
-                    ),
-                  ],
-          ),
-          child: Icon(
-            _orbIcon,
-            size: 40,
-            color: _isMuted ? LumenColors.onSurfaceVariant : LumenColors.onPrimaryContainer,
+class _Cabecera extends StatelessWidget {
+  final CineState cine;
+  final VoidCallback onCerrarSesion;
+
+  /// La conversacion se atiende en el telefono (sin internet).
+  final bool sinConexion;
+  const _Cabecera({required this.cine, required this.onCerrarSesion, this.sinConexion = false});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget boton(IconData icono, String texto, Pantalla destino) {
+      final activo = cine.pantalla == destino;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => cine.irA(destino),
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: activo ? LumenColors.primary.withValues(alpha: 0.16) : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(icono, size: 17, color: activo ? LumenColors.primary : LumenColors.onSurfaceVariant),
+              const SizedBox(width: 5),
+              Text(texto, style: TextStyle(color: activo ? LumenColors.primary : LumenColors.onSurfaceVariant, fontSize: 12.5, fontWeight: activo ? FontWeight.w800 : FontWeight.w600)),
+            ]),
           ),
         ),
-      ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      child: Row(children: [
+        boton(Icons.home_outlined, 'Inicio', Pantalla.inicio),
+        boton(Icons.local_movies_outlined, 'Cartelera', Pantalla.cartelera),
+        boton(Icons.confirmation_number_outlined, 'Mis compras', Pantalla.misCompras),
+        if (sinConexion)
+          const Tooltip(message: 'Modo sin conexión', child: Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Icon(Icons.cloud_off, size: 19, color: LumenColors.secondary))),
+        IconButton(
+          tooltip: 'Cerrar sesión',
+          onPressed: onCerrarSesion,
+          icon: const Icon(Icons.logout, size: 20),
+          color: LumenColors.onSurfaceVariant,
+        ),
+      ]),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------- subtitulos
+
+/// Lo que se entendio y lo que respondio el agente (el panel de voz de "Voz + UI dinamica" en la web).
+/// Lo que dicen los subtitulos ahora: lo que se le entendio al cliente, la respuesta del asistente o un aviso de estado.
+({String? linea1, String? linea2, Color color, bool visible}) _lineasSubtitulo(VoiceSession voz) {
+  final t = voz.turno;
+  String? linea1;
+  String? linea2;
+  var color = LumenColors.onSurface;
+
+  if (voz.estado == EstadoConversacion.error) {
+    linea2 = voz.error ?? 'No se pudo iniciar la conversación.';
+    color = LumenColors.error;
+  } else if (voz.estado == EstadoConversacion.conectando) {
+    linea2 = voz.reconectando ? 'Reconectando con el asistente…' : 'Conectando…';
+  } else if (t.error != null) {
+    linea2 = t.error;
+    color = LumenColors.error;
+  } else if (!t.vacio) {
+    linea1 = t.transcript.isEmpty ? null : 'Tú: ${t.transcript}';
+    linea2 = t.respuesta.isEmpty ? (voz.estado == EstadoConversacion.pensando ? 'Pensando…' : null) : t.respuesta;
+  } else if (voz.estado == EstadoConversacion.escuchando) {
+    linea2 = voz.silenciado ? 'Micrófono en silencio (doble toque para activar)' : (voz.usuarioHablando ? 'Te escucho…' : null);
+  }
+  return (linea1: linea1, linea2: linea2, color: color, visible: linea1 != null || linea2 != null);
+}
+
+class _Subtitulos extends StatelessWidget {
+  final VoiceSession voz;
+  const _Subtitulos({required this.voz});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: voz,
+      builder: (context, _) {
+        final l = _lineasSubtitulo(voz);
+        return IgnorePointer(
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 250),
+            opacity: l.visible ? 1 : 0,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(color: LumenColors.surfaceContainer.withValues(alpha: 0.96), borderRadius: BorderRadius.circular(16)),
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (l.linea1 != null) Text(l.linea1!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: LumenColors.onSurfaceVariant, fontSize: 12)),
+                if (l.linea1 != null && l.linea2 != null) const SizedBox(height: 3),
+                if (l.linea2 != null) Text(l.linea2!, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(color: l.color, fontSize: 14, height: 1.3)),
+              ]),
+            ),
+          ),
+        );
+      },
     );
   }
 }
