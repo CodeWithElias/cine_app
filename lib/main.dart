@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'config/app_config.dart';
 import 'screens/login_screen.dart';
 import 'screens/voice_screen.dart';
 import 'services/auth_service.dart';
@@ -23,8 +24,8 @@ class CineApp extends StatelessWidget {
   }
 }
 
-/// Inicializa el login con Google y revisa si ya hay una sesion guardada
-/// antes de decidir si mostrar el login o ir directo a la pantalla de voz.
+/// Inicializa la configuracion de red, el login con Google y revisa si ya hay
+/// una sesion guardada antes de decidir si mostrar el login o ir directo a la pantalla de voz.
 class _StartupGate extends StatefulWidget {
   const _StartupGate();
 
@@ -38,7 +39,12 @@ class _StartupGateState extends State<_StartupGate> {
   @override
   void initState() {
     super.initState();
-    _init = AuthService.instance.init();
+    _init = _inicializar();
+  }
+
+  Future<void> _inicializar() async {
+    await AppConfig.init();
+    await AuthService.instance.init();
   }
 
   @override

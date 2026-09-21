@@ -1,25 +1,87 @@
-/// Configuracion del entorno. Nada de esto es secreto (son URLs de
-/// desarrollo en la LAN y un Client ID de Google, que es publico por
-/// diseno), pero se centraliza aca para no repetirlo/hardcodearlo en
-/// cada pantalla.
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// IP o Host por defecto. Se puede sobreescribir al compilar con:
+/// `flutter run --dart-define=HOST_IP=192.168.1.6`
+const String _kDefaultHost =
+    String.fromEnvironment('HOST_IP', defaultValue: '192.168.1.6');
+
+/// Configuracion dinamica del entorno.
 ///
-/// IP de la PC donde corren los backends (Docker) en la red WiFi local.
-/// Si tu PC cambia de red o de IP, este es el unico lugar que hay que tocar.
-const String kHostIp = '192.168.1.36';
+/// Permite cambiar la IP libremente (WiFi de casa, WiFi de la universidad,
+/// zona portatil del celular, emulador o Tailscale) sin tener que recompilar
+/// la aplicacion. La IP seleccionada se persiste en SharedPreferences.
+class AppConfig {
+  AppConfig._();
 
-/// Backend NestJS (BackendParcial1/Backend) - login y datos de negocio.
-const String kBackendApiUrl = 'http://$kHostIp:3333/api';
+  static const _hostKey = 'lumen_host_ip';
+  static String _host = _kDefaultHost;
+  static final ValueNotifier<String> hostNotifier =
+      ValueNotifier<String>(_host);
 
-/// Agente de voz (back_agent) - FastAPI, transcribe/responde/sintetiza audio.
-const String kVoiceAgentUrl = 'http://$kHostIp:8000';
+  /// Carga la IP guardada previamente en el dispositivo.
+  static Future<void> init() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final guardada = prefs.getString(_hostKey);
+      if (guardada != null && guardada.trim().isNotEmpty) {
+        _host = guardada.trim();
+        hostNotifier.value = _host;
+      }
+    } catch (_) {}
+  }
 
-/// Conversacion continua con el agente (WebSocket `/ws/voz`): mismo servicio
-/// y mismo protocolo que usa el frontend web (src/core/voice).
-const String kVoiceWsUrl = 'ws://$kHostIp:8000/ws/voz';
+  static String get hostIp => _host;
 
-/// Mismo Client ID de Google (tipo Web) que ya usan el frontend y el backend.
-/// El login nativo en Android igual requiere un cliente OAuth "Android"
-/// separado registrado en la consola de Google Cloud (paquete + SHA-1),
-/// pero ese cliente no se referencia por ID en ningun lado del codigo.
+  /// Cambia la IP o URL del host y la guarda para proximos inicios.
+  static Future<void> setHostIp(String nuevoHost) async {
+    _host = nuevoHost.trim();
+    hostNotifier.value = _host;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_hostKey, _host);
+    } catch (_) {}
+  }
+
+  /// Backend NestJS (BackendParcial1/Backend) - login y datos de negocio.
+  static String get backendApiUrl {
+    if (_host.startsWith('http://') || _host.startsWith('https://')) {
+      return '$_host/api';
+    }
+    return 'http://$_host:3333/api';
+  }
+
+  /// Agente de voz (back_agent) - FastAPI, transcribe/responde/sintetiza audio.
+  static String get voiceAgentUrl {
+    if (_host.startsWith('http://') || _host.startsWith('https://')) {
+      return _host;
+    }
+    return 'http://$_host:8000';
+  }
+
+  /// Conversacion continua con el agente (WebSocket `/ws/voz`): mismo servicio
+  /// y mismo protocolo que usa el frontend web (src/core/voice).
+  static String get voiceWsUrl {
+    if (_host.startsWith('https://')) {
+      final sinProto = _host.substring(8);
+      return 'wss://$sinProto/ws/voz';
+    }
+    if (_host.startsWith('http://')) {
+      final sinProto = _host.substring(7);
+      return 'ws://$sinProto/ws/voz';
+    }
+    return 'ws://$_host:8000/ws/voz';
+  }
+}
+
+/// Getters globales para mantener compatibilidad total con el codigo existente.
+String get kHostIp => AppConfig.hostIp;
+String get kBackendApiUrl => AppConfig.backendApiUrl;
+String get kVoiceAgentUrl => AppConfig.voiceAgentUrl;
+String get kVoiceWsUrl => AppConfig.voiceWsUrl;
+
+/// Mismo Client ID de Google (tipo Web) que usan el frontend y el backend.
+/// En Android, Google Play Services valida la app internamente con el cliente
+/// OAuth Android (paquete + SHA-1); en el codigo SIEMPRE se pasa el Web Client ID.
 const String kGoogleServerClientId =
-    '12414827958-bngsa5sj8ulotf6a6habeid68jtoou0s.apps.googleusercontent.com';
+    '12414827958-jim0qgmma2n35cu2jouo165k9aahfk7n.apps.googleusercontent.com';

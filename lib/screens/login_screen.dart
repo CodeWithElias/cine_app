@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../config/app_config.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import 'voice_screen.dart';
@@ -15,6 +16,109 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
   bool _cargando = false;
 
+  Future<void> _abrirConfiguracionIp() async {
+    final controller = TextEditingController(text: AppConfig.hostIp);
+    final nueva = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: LumenColors.surfaceContainer,
+        title: const Row(
+          children: [
+            Icon(Icons.dns_outlined, color: LumenColors.primary, size: 22),
+            SizedBox(width: 10),
+            Text(
+              'IP del Servidor',
+              style: TextStyle(color: LumenColors.onSurface, fontSize: 18),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Indica la IP de tu PC o URL del backend para conectarte desde el WiFi de la U, casa o zona portátil:',
+                style: TextStyle(
+                  color: LumenColors.onSurfaceVariant,
+                  fontSize: 13,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                style: const TextStyle(color: LumenColors.onSurface),
+                decoration: const InputDecoration(
+                  labelText: 'IP o Host',
+                  hintText: 'Ej: 192.168.1.6 o 10.0.2.2',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.wifi, size: 18),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Atajos rápidos:',
+                style: TextStyle(
+                  color: LumenColors.onSurfaceVariant,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                children: [
+                  ActionChip(
+                    label: const Text(
+                      '192.168.1.6 (Casa)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () => controller.text = '192.168.1.6',
+                  ),
+                  ActionChip(
+                    label: const Text(
+                      '10.0.2.2 (Emulador)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () => controller.text = '10.0.2.2',
+                  ),
+                  ActionChip(
+                    label: const Text(
+                      '100.114.60.117 (Tailscale)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () => controller.text = '100.114.60.117',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, controller.text.trim()),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    if (nueva != null && nueva.isNotEmpty) {
+      await AppConfig.setHostIp(nueva);
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Servidor actualizado a: ${AppConfig.hostIp}')),
+      );
+    }
+  }
+
   Future<void> _iniciarSesion() async {
     setState(() {
       _error = null;
@@ -23,9 +127,9 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await AuthService.instance.loginConGoogle();
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const VoiceScreen()),
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const VoiceScreen()));
     } on AuthException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
@@ -109,7 +213,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: SizedBox(
                                 width: 24,
                                 height: 24,
-                                child: CircularProgressIndicator(strokeWidth: 2.5),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                ),
                               ),
                             )
                           : ElevatedButton.icon(
@@ -148,13 +254,41 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextButton.icon(
                       onPressed: () {
                         Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(builder: (_) => const VoiceScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => const VoiceScreen(),
+                          ),
                         );
                       },
-                      icon: const Icon(Icons.bug_report, size: 18, color: LumenColors.onSurfaceVariant),
+                      icon: const Icon(
+                        Icons.bug_report,
+                        size: 18,
+                        color: LumenColors.onSurfaceVariant,
+                      ),
                       label: const Text(
                         'Probar sin iniciar sesión (temporal)',
-                        style: TextStyle(color: LumenColors.onSurfaceVariant, fontSize: 12),
+                        style: TextStyle(
+                          color: LumenColors.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    ValueListenableBuilder<String>(
+                      valueListenable: AppConfig.hostNotifier,
+                      builder: (context, host, _) => TextButton.icon(
+                        onPressed: _abrirConfiguracionIp,
+                        icon: const Icon(
+                          Icons.wifi_tethering,
+                          size: 16,
+                          color: LumenColors.secondary,
+                        ),
+                        label: Text(
+                          'Servidor: $host',
+                          style: const TextStyle(
+                            color: LumenColors.onSurfaceVariant,
+                            fontSize: 11,
+                          ),
+                        ),
                       ),
                     ),
                   ],

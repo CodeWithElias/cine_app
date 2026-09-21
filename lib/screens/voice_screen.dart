@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_config.dart';
 import '../offline/gestor_modelos.dart';
 import '../offline/sin_conexion.dart';
 import '../services/auth_service.dart';
@@ -44,7 +45,8 @@ class VoiceScreen extends StatefulWidget {
   State<VoiceScreen> createState() => _VoiceScreenState();
 }
 
-class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin {
+class _VoiceScreenState extends State<VoiceScreen>
+    with TickerProviderStateMixin {
   late final CineState _cine;
   late final UiControl _ui;
   late final UiActionHandler _handler;
@@ -77,20 +79,33 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
         _programarContexto(inmediato: true);
       },
     );
-    _voz = VoiceSession(sesionId: _sesionId, onUiAction: _handler.aplicar, sinConexion: _sinConexion)..addListener(_alCambiarVoz);
+    _voz = VoiceSession(
+      sesionId: _sesionId,
+      onUiAction: _handler.aplicar,
+      sinConexion: _sinConexion,
+    )..addListener(_alCambiarVoz);
     _cine.addListener(_programarContexto);
     CineApi.onSesionVencida = _sesionVencida;
     // Stripe: la clave publicable la sirve el backend. Si hay tarjeta, el agente puede ofrecerla (`pantalla`).
-    _pagos.iniciar(_cine.api).then((_) => _voz.setTarjetaDisponible(_pagos.habilitado));
+    _pagos
+        .iniciar(_cine.api)
+        .then((_) => _voz.setTarjetaDisponible(_pagos.habilitado));
     _gestor.iniciar().then((_) => _ofrecerModoSinConexion());
 
-    _ringController = AnimationController(vsync: this, duration: const Duration(seconds: 14))..repeat();
-    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
+    _ringController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 14),
+    )..repeat();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    if (CineApi.onSesionVencida == _sesionVencida) CineApi.onSesionVencida = null;
+    if (CineApi.onSesionVencida == _sesionVencida)
+      CineApi.onSesionVencida = null;
     _pausaContexto?.cancel();
     _cine.removeListener(_programarContexto);
     _voz.removeListener(_alCambiarVoz);
@@ -114,7 +129,10 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
     if (inmediato) {
       _enviarContexto();
     } else {
-      _pausaContexto = Timer(const Duration(milliseconds: 350), _enviarContexto);
+      _pausaContexto = Timer(
+        const Duration(milliseconds: 350),
+        _enviarContexto,
+      );
     }
   }
 
@@ -132,13 +150,19 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
   void _alCambiarVoz() {
     final estado = _voz.estado;
     if (estado != _estadoVisto) {
-      final abrio = !_voz.conversando ? false : (_estadoVisto == null || _estadoVisto == EstadoConversacion.conectando || _estadoVisto == EstadoConversacion.apagada);
+      final abrio = !_voz.conversando
+          ? false
+          : (_estadoVisto == null ||
+                _estadoVisto == EstadoConversacion.conectando ||
+                _estadoVisto == EstadoConversacion.apagada);
       _estadoVisto = estado;
       if (abrio) {
-        _ultimoContexto = null; // conversacion nueva (o reconectada): se vuelve a contar lo marcado
+        _ultimoContexto =
+            null; // conversacion nueva (o reconectada): se vuelve a contar lo marcado
         _programarContexto(inmediato: true);
       }
-      if (estado == EstadoConversacion.error && mounted && _voz.error != null) _mostrarError(_voz.error!);
+      if (estado == EstadoConversacion.error && mounted && _voz.error != null)
+        _mostrarError(_voz.error!);
     }
   }
 
@@ -147,7 +171,11 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
   void _mostrarError(String mensaje) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensaje), backgroundColor: LumenColors.errorContainer, behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: LumenColors.errorContainer,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -168,7 +196,11 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
   void _alternarSilencio() => _voz.silenciar(!_voz.silenciado);
 
   void _abrirModoSinConexion() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ModoSinConexionScreen(gestor: _gestor, api: _cine.api)));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ModoSinConexionScreen(gestor: _gestor, api: _cine.api),
+      ),
+    );
   }
 
   /// La primera vez se le ofrece al cliente llevar los modelos al telefono (es opcional); si dice que no, no se vuelve a preguntar.
@@ -182,15 +214,27 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
       context: context,
       builder: (c) => AlertDialog(
         backgroundColor: LumenColors.surfaceContainer,
-        icon: const Icon(Icons.cloud_off_outlined, color: LumenColors.secondary),
-        title: const Text('¿Usar Lumen sin internet?', style: TextStyle(color: LumenColors.onSurface)),
+        icon: const Icon(
+          Icons.cloud_off_outlined,
+          color: LumenColors.secondary,
+        ),
+        title: const Text(
+          '¿Usar Lumen sin internet?',
+          style: TextStyle(color: LumenColors.onSurface),
+        ),
         content: const Text(
           'Puedes descargar los modelos de voz al teléfono (unos 190 MB) para hablar con Lumen y consultar la cartelera aunque no tengas internet. Es opcional y lo puedes hacer más tarde desde el inicio.',
           style: TextStyle(color: LumenColors.onSurfaceVariant, height: 1.35),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Ahora no')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Elegir')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Ahora no'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Elegir'),
+          ),
         ],
       ),
     );
@@ -219,8 +263,15 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
     await _voz.terminar();
     await AuthService.instance.logout();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tu sesión venció. Inicia sesión de nuevo.')));
-    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tu sesión venció. Inicia sesión de nuevo.'),
+      ),
+    );
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   Future<void> _confirmarCerrarSesion() async {
@@ -228,11 +279,26 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: LumenColors.surfaceContainer,
-        title: const Text('Cerrar sesión', style: TextStyle(color: LumenColors.onSurface)),
-        content: const Text('¿Quieres cerrar sesión?', style: TextStyle(color: LumenColors.onSurfaceVariant)),
+        title: const Text(
+          'Cerrar sesión',
+          style: TextStyle(color: LumenColors.onSurface),
+        ),
+        content: const Text(
+          '¿Quieres cerrar sesión?',
+          style: TextStyle(color: LumenColors.onSurfaceVariant),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Cerrar sesión', style: TextStyle(color: LumenColors.error))),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'Cerrar sesión',
+              style: TextStyle(color: LumenColors.error),
+            ),
+          ),
         ],
       ),
     );
@@ -240,7 +306,116 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
       await _voz.terminar();
       await AuthService.instance.logout();
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+  }
+
+  Future<void> _abrirConfiguracionIp() async {
+    final controller = TextEditingController(text: AppConfig.hostIp);
+    final nueva = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: LumenColors.surfaceContainer,
+        title: const Row(
+          children: [
+            Icon(Icons.dns_outlined, color: LumenColors.primary, size: 22),
+            SizedBox(width: 10),
+            Text(
+              'IP del Servidor',
+              style: TextStyle(color: LumenColors.onSurface, fontSize: 18),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Indica la IP de tu PC o URL del backend para conectarte desde el WiFi de la U, casa o zona portátil:',
+                style: TextStyle(
+                  color: LumenColors.onSurfaceVariant,
+                  fontSize: 13,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                style: const TextStyle(color: LumenColors.onSurface),
+                decoration: const InputDecoration(
+                  labelText: 'IP o Host',
+                  hintText: 'Ej: 192.168.1.6 o 10.0.2.2',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.wifi, size: 18),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Atajos rápidos:',
+                style: TextStyle(
+                  color: LumenColors.onSurfaceVariant,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                children: [
+                  ActionChip(
+                    label: const Text(
+                      '192.168.1.6 (Casa)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () => controller.text = '192.168.1.6',
+                  ),
+                  ActionChip(
+                    label: const Text(
+                      '10.0.2.2 (Emulador)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () => controller.text = '10.0.2.2',
+                  ),
+                  ActionChip(
+                    label: const Text(
+                      '100.114.60.117 (Tailscale)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () => controller.text = '100.114.60.117',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, controller.text.trim()),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    if (nueva != null && nueva.isNotEmpty) {
+      await AppConfig.setHostIp(nueva);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Servidor actualizado a: ${AppConfig.hostIp}')),
+      );
+      if (_voz.activa) {
+        await _voz.terminar();
+        await _voz.iniciar();
+      }
     }
   }
 
@@ -249,8 +424,15 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
-    final reserva = _kButtonSize + _kButtonBottomMargin + mq.padding.bottom + 16;
-    final anchor = Offset(mq.size.width / 2, mq.size.height - mq.padding.bottom - _kButtonBottomMargin - _kButtonSize / 2);
+    final reserva =
+        _kButtonSize + _kButtonBottomMargin + mq.padding.bottom + 16;
+    final anchor = Offset(
+      mq.size.width / 2,
+      mq.size.height -
+          mq.padding.bottom -
+          _kButtonBottomMargin -
+          _kButtonSize / 2,
+    );
 
     return ListenableBuilder(
       listenable: _cine,
@@ -262,43 +444,75 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
         },
         child: Scaffold(
           backgroundColor: LumenColors.surfaceContainerLowest,
-          body: Stack(children: [
-            SafeArea(
-              bottom: false,
-              child: Column(children: [
-                ListenableBuilder(
-                  listenable: _voz,
-                  builder: (_, _) => _Cabecera(cine: _cine, onCerrarSesion: _confirmarCerrarSesion, sinConexion: _voz.modoLocal),
-                ),
-                Expanded(child: Padding(padding: EdgeInsets.only(bottom: _cine.pantalla == Pantalla.compra ? 0 : reserva), child: _vista())),
-                // En la compra la barra de resumen (asientos, total, Cancelar/Continuar) va pegada abajo: se le reserva el espacio
-                // del boton del asistente Y, cuando hay algo que decir, el de los subtitulos, para que nada se tape.
-                if (_cine.pantalla == Pantalla.compra)
-                  ListenableBuilder(
-                    listenable: _voz,
-                    builder: (_, _) => AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      height: reserva + (_lineasSubtitulo(_voz).visible ? _kAltoSubtitulos : 0),
+          body: Stack(
+            children: [
+              SafeArea(
+                bottom: false,
+                child: Column(
+                  children: [
+                    ListenableBuilder(
+                      listenable: _voz,
+                      builder: (_, _) => _Cabecera(
+                        cine: _cine,
+                        onCerrarSesion: _confirmarCerrarSesion,
+                        onConfigurarIp: _abrirConfiguracionIp,
+                        sinConexion: _voz.modoLocal,
+                      ),
                     ),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          bottom: _cine.pantalla == Pantalla.compra
+                              ? 0
+                              : reserva,
+                        ),
+                        child: _vista(),
+                      ),
+                    ),
+                    // En la compra la barra de resumen (asientos, total, Cancelar/Continuar) va pegada abajo: se le reserva el espacio
+                    // del boton del asistente Y, cuando hay algo que decir, el de los subtitulos, para que nada se tape.
+                    if (_cine.pantalla == Pantalla.compra)
+                      ListenableBuilder(
+                        listenable: _voz,
+                        builder: (_, _) => AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
+                          height:
+                              reserva +
+                              (_lineasSubtitulo(_voz).visible
+                                  ? _kAltoSubtitulos
+                                  : 0),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Positioned.fill(child: _anillos(anchor)),
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: reserva - 4,
+                child: SizedBox(
+                  height: _kAltoSubtitulos,
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: _Subtitulos(voz: _voz),
                   ),
-              ]),
-            ),
-            Positioned.fill(child: _anillos(anchor)),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: reserva - 4,
-              child: SizedBox(height: _kAltoSubtitulos, child: Align(alignment: Alignment.bottomCenter, child: _Subtitulos(voz: _voz))),
-            ),
-            VentanasLayer(ui: _ui, reservaInferior: reserva + 6, onDecir: _voz.enviarTexto),
-            Positioned(
-              bottom: _kButtonBottomMargin + mq.padding.bottom,
-              left: 0,
-              right: 0,
-              child: Center(child: _boton()),
-            ),
-          ]),
+                ),
+              ),
+              VentanasLayer(
+                ui: _ui,
+                reservaInferior: reserva + 6,
+                onDecir: _voz.enviarTexto,
+              ),
+              Positioned(
+                bottom: _kButtonBottomMargin + mq.padding.bottom,
+                left: 0,
+                right: 0,
+                child: Center(child: _boton()),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -308,45 +522,62 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
     final nombre = AuthService.instance.usuario?.nombre ?? 'cliente';
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
-      transitionBuilder: (child, animation) => FadeTransition(opacity: CurvedAnimation(parent: animation, curve: Curves.easeOutCubic), child: child),
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+        child: child,
+      ),
       child: switch (_cine.pantalla) {
         Pantalla.inicio => ListenableBuilder(
-            key: const ValueKey('inicio'),
-            listenable: _voz,
-            builder: (_, _) => InicioView(cine: _cine, nombre: nombre, conversando: _voz.conversando, gestor: _gestor, onSinConexion: _abrirModoSinConexion),
-          ),
-        Pantalla.cartelera => CarteleraView(key: const ValueKey('cartelera'), cine: _cine, ui: _ui, alTrailer: _alTrailer),
-        Pantalla.compra => CompraView(
-            key: const ValueKey('compra'),
+          key: const ValueKey('inicio'),
+          listenable: _voz,
+          builder: (_, _) => InicioView(
             cine: _cine,
-            ui: _ui,
-            pagos: _pagos,
-            onPagoCampos: (id, campos) {
-              if (_voz.conversando) _voz.enviarPagoCampos(id, campos);
-            },
-            onPagoEvento: (id, evento, [mensaje]) {
-              if (_voz.conversando) _voz.enviarPagoEvento(id, evento, mensaje);
-            },
+            nombre: nombre,
+            conversando: _voz.conversando,
+            gestor: _gestor,
+            onSinConexion: _abrirModoSinConexion,
           ),
-        Pantalla.misCompras => MisComprasView(key: const ValueKey('mis_compras'), cine: _cine),
+        ),
+        Pantalla.cartelera => CarteleraView(
+          key: const ValueKey('cartelera'),
+          cine: _cine,
+          ui: _ui,
+          alTrailer: _alTrailer,
+        ),
+        Pantalla.compra => CompraView(
+          key: const ValueKey('compra'),
+          cine: _cine,
+          ui: _ui,
+          pagos: _pagos,
+          onPagoCampos: (id, campos) {
+            if (_voz.conversando) _voz.enviarPagoCampos(id, campos);
+          },
+          onPagoEvento: (id, evento, [mensaje]) {
+            if (_voz.conversando) _voz.enviarPagoEvento(id, evento, mensaje);
+          },
+        ),
+        Pantalla.misCompras => MisComprasView(
+          key: const ValueKey('mis_compras'),
+          cine: _cine,
+        ),
       },
     );
   }
 
   Widget _anillos(Offset anchor) => IgnorePointer(
-        child: ListenableBuilder(
-          listenable: Listenable.merge([_ringController, _voz]),
-          builder: (context, _) => CustomPaint(
-            painter: EdgeRingsPainter(
-              anchor: anchor,
-              shimmer: _ringController.value,
-              intensity: _voz.conversando ? 1.0 : 0.25,
-              colorA: LumenColors.primaryContainer,
-              colorB: LumenColors.secondary,
-            ),
-          ),
+    child: ListenableBuilder(
+      listenable: Listenable.merge([_ringController, _voz]),
+      builder: (context, _) => CustomPaint(
+        painter: EdgeRingsPainter(
+          anchor: anchor,
+          shimmer: _ringController.value,
+          intensity: _voz.conversando ? 1.0 : 0.25,
+          colorA: LumenColors.primaryContainer,
+          colorB: LumenColors.secondary,
         ),
-      );
+      ),
+    ),
+  );
 
   Widget _boton() {
     return ListenableBuilder(
@@ -355,11 +586,20 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
         final silenciado = _voz.silenciado;
         final activa = _voz.conversando;
         final gradiente = silenciado
-            ? const LinearGradient(colors: [LumenColors.surfaceContainer, LumenColors.surfaceContainerHigh])
+            ? const LinearGradient(
+                colors: [
+                  LumenColors.surfaceContainer,
+                  LumenColors.surfaceContainerHigh,
+                ],
+              )
             : const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [LumenColors.surfaceContainer, LumenColors.primaryContainer, LumenColors.secondary],
+                colors: [
+                  LumenColors.surfaceContainer,
+                  LumenColors.primaryContainer,
+                  LumenColors.secondary,
+                ],
               );
 
         final IconData icono;
@@ -383,7 +623,12 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
           child: AnimatedBuilder(
             animation: _pulseController,
             builder: (context, child) {
-              final latido = (activa && (_voz.usuarioHablando || _voz.estado == EstadoConversacion.hablando)) ? 1 + _pulseController.value * 0.09 : 1.0;
+              final latido =
+                  (activa &&
+                      (_voz.usuarioHablando ||
+                          _voz.estado == EstadoConversacion.hablando))
+                  ? 1 + _pulseController.value * 0.09
+                  : 1.0;
               return Transform.scale(scale: latido, child: child);
             },
             child: Container(
@@ -394,9 +639,23 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
                 gradient: gradiente,
                 boxShadow: silenciado
                     ? const []
-                    : [BoxShadow(color: LumenColors.primaryContainer.withValues(alpha: activa ? 0.6 : 0.35), blurRadius: 44, spreadRadius: 2)],
+                    : [
+                        BoxShadow(
+                          color: LumenColors.primaryContainer.withValues(
+                            alpha: activa ? 0.6 : 0.35,
+                          ),
+                          blurRadius: 44,
+                          spreadRadius: 2,
+                        ),
+                      ],
               ),
-              child: Icon(icono, size: 38, color: silenciado ? LumenColors.onSurfaceVariant : LumenColors.onPrimaryContainer),
+              child: Icon(
+                icono,
+                size: 38,
+                color: silenciado
+                    ? LumenColors.onSurfaceVariant
+                    : LumenColors.onPrimaryContainer,
+              ),
             ),
           ),
         );
@@ -410,10 +669,16 @@ class _VoiceScreenState extends State<VoiceScreen> with TickerProviderStateMixin
 class _Cabecera extends StatelessWidget {
   final CineState cine;
   final VoidCallback onCerrarSesion;
+  final VoidCallback onConfigurarIp;
 
   /// La conversacion se atiende en el telefono (sin internet).
   final bool sinConexion;
-  const _Cabecera({required this.cine, required this.onCerrarSesion, this.sinConexion = false});
+  const _Cabecera({
+    required this.cine,
+    required this.onCerrarSesion,
+    required this.onConfigurarIp,
+    this.sinConexion = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -427,14 +692,34 @@ class _Cabecera extends StatelessWidget {
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              color: activo ? LumenColors.primary.withValues(alpha: 0.16) : Colors.transparent,
+              color: activo
+                  ? LumenColors.primary.withValues(alpha: 0.16)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(icono, size: 17, color: activo ? LumenColors.primary : LumenColors.onSurfaceVariant),
-              const SizedBox(width: 5),
-              Text(texto, style: TextStyle(color: activo ? LumenColors.primary : LumenColors.onSurfaceVariant, fontSize: 12.5, fontWeight: activo ? FontWeight.w800 : FontWeight.w600)),
-            ]),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icono,
+                  size: 17,
+                  color: activo
+                      ? LumenColors.primary
+                      : LumenColors.onSurfaceVariant,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  texto,
+                  style: TextStyle(
+                    color: activo
+                        ? LumenColors.primary
+                        : LumenColors.onSurfaceVariant,
+                    fontSize: 12.5,
+                    fontWeight: activo ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -442,19 +727,41 @@ class _Cabecera extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
-      child: Row(children: [
-        boton(Icons.home_outlined, 'Inicio', Pantalla.inicio),
-        boton(Icons.local_movies_outlined, 'Cartelera', Pantalla.cartelera),
-        boton(Icons.confirmation_number_outlined, 'Mis compras', Pantalla.misCompras),
-        if (sinConexion)
-          const Tooltip(message: 'Modo sin conexión', child: Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Icon(Icons.cloud_off, size: 19, color: LumenColors.secondary))),
-        IconButton(
-          tooltip: 'Cerrar sesión',
-          onPressed: onCerrarSesion,
-          icon: const Icon(Icons.logout, size: 20),
-          color: LumenColors.onSurfaceVariant,
-        ),
-      ]),
+      child: Row(
+        children: [
+          boton(Icons.home_outlined, 'Inicio', Pantalla.inicio),
+          boton(Icons.local_movies_outlined, 'Cartelera', Pantalla.cartelera),
+          boton(
+            Icons.confirmation_number_outlined,
+            'Mis compras',
+            Pantalla.misCompras,
+          ),
+          if (sinConexion)
+            const Tooltip(
+              message: 'Modo sin conexión',
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: Icon(
+                  Icons.cloud_off,
+                  size: 19,
+                  color: LumenColors.secondary,
+                ),
+              ),
+            ),
+          IconButton(
+            tooltip: 'Servidor / IP',
+            onPressed: onConfigurarIp,
+            icon: const Icon(Icons.dns_outlined, size: 20),
+            color: LumenColors.onSurfaceVariant,
+          ),
+          IconButton(
+            tooltip: 'Cerrar sesión',
+            onPressed: onCerrarSesion,
+            icon: const Icon(Icons.logout, size: 20),
+            color: LumenColors.onSurfaceVariant,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -463,7 +770,9 @@ class _Cabecera extends StatelessWidget {
 
 /// Lo que se entendio y lo que respondio el agente (el panel de voz de "Voz + UI dinamica" en la web).
 /// Lo que dicen los subtitulos ahora: lo que se le entendio al cliente, la respuesta del asistente o un aviso de estado.
-({String? linea1, String? linea2, Color color, bool visible}) _lineasSubtitulo(VoiceSession voz) {
+({String? linea1, String? linea2, Color color, bool visible}) _lineasSubtitulo(
+  VoiceSession voz,
+) {
   final t = voz.turno;
   String? linea1;
   String? linea2;
@@ -473,17 +782,28 @@ class _Cabecera extends StatelessWidget {
     linea2 = voz.error ?? 'No se pudo iniciar la conversación.';
     color = LumenColors.error;
   } else if (voz.estado == EstadoConversacion.conectando) {
-    linea2 = voz.reconectando ? 'Reconectando con el asistente…' : 'Conectando…';
+    linea2 = voz.reconectando
+        ? 'Reconectando con el asistente…'
+        : 'Conectando…';
   } else if (t.error != null) {
     linea2 = t.error;
     color = LumenColors.error;
   } else if (!t.vacio) {
     linea1 = t.transcript.isEmpty ? null : 'Tú: ${t.transcript}';
-    linea2 = t.respuesta.isEmpty ? (voz.estado == EstadoConversacion.pensando ? 'Pensando…' : null) : t.respuesta;
+    linea2 = t.respuesta.isEmpty
+        ? (voz.estado == EstadoConversacion.pensando ? 'Pensando…' : null)
+        : t.respuesta;
   } else if (voz.estado == EstadoConversacion.escuchando) {
-    linea2 = voz.silenciado ? 'Micrófono en silencio (doble toque para activar)' : (voz.usuarioHablando ? 'Te escucho…' : null);
+    linea2 = voz.silenciado
+        ? 'Micrófono en silencio (doble toque para activar)'
+        : (voz.usuarioHablando ? 'Te escucho…' : null);
   }
-  return (linea1: linea1, linea2: linea2, color: color, visible: linea1 != null || linea2 != null);
+  return (
+    linea1: linea1,
+    linea2: linea2,
+    color: color,
+    visible: linea1 != null || linea2 != null,
+  );
 }
 
 class _Subtitulos extends StatelessWidget {
@@ -503,12 +823,39 @@ class _Subtitulos extends StatelessWidget {
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              decoration: BoxDecoration(color: LumenColors.surfaceContainer.withValues(alpha: 0.96), borderRadius: BorderRadius.circular(16)),
-              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                if (l.linea1 != null) Text(l.linea1!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: LumenColors.onSurfaceVariant, fontSize: 12)),
-                if (l.linea1 != null && l.linea2 != null) const SizedBox(height: 3),
-                if (l.linea2 != null) Text(l.linea2!, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(color: l.color, fontSize: 14, height: 1.3)),
-              ]),
+              decoration: BoxDecoration(
+                color: LumenColors.surfaceContainer.withValues(alpha: 0.96),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (l.linea1 != null)
+                    Text(
+                      l.linea1!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: LumenColors.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
+                  if (l.linea1 != null && l.linea2 != null)
+                    const SizedBox(height: 3),
+                  if (l.linea2 != null)
+                    Text(
+                      l.linea2!,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: l.color,
+                        fontSize: 14,
+                        height: 1.3,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         );
