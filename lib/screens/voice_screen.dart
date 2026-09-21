@@ -335,7 +335,7 @@ class _VoiceScreenState extends State<VoiceScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Indica la IP de tu PC o URL del backend para conectarte desde el WiFi de la U, casa o zona portátil:',
+                'Por defecto la app se conecta al servidor en la nube (AWS). Si trabajas en una red local, indica la IP de tu PC o la URL del backend:',
                 style: TextStyle(
                   color: LumenColors.onSurfaceVariant,
                   fontSize: 13,
@@ -349,7 +349,7 @@ class _VoiceScreenState extends State<VoiceScreen>
                 style: const TextStyle(color: LumenColors.onSurface),
                 decoration: const InputDecoration(
                   labelText: 'IP o Host',
-                  hintText: 'Ej: 192.168.1.6 o 10.0.2.2',
+                  hintText: 'Ej: 192.168.1.6 o ${AppConfig.hostNube}',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.wifi, size: 18),
                 ),
@@ -367,6 +367,13 @@ class _VoiceScreenState extends State<VoiceScreen>
               Wrap(
                 spacing: 6,
                 children: [
+                  ActionChip(
+                    label: const Text(
+                      'Nube (AWS)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () => controller.text = AppConfig.hostNube,
+                  ),
                   ActionChip(
                     label: const Text(
                       '192.168.1.6 (Casa)',

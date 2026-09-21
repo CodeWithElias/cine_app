@@ -1,10 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Servidor en la nube (AWS) con HTTPS: es al que se conecta la app por defecto,
+/// asi quien la instala no tiene que escribir nada.
+const String _kHostNube = 'https://54-224-233-99.sslip.io';
+
 /// IP o Host por defecto. Se puede sobreescribir al compilar con:
 /// `flutter run --dart-define=HOST_IP=192.168.1.6`
 const String _kDefaultHost =
-    String.fromEnvironment('HOST_IP', defaultValue: '192.168.1.6');
+    String.fromEnvironment('HOST_IP', defaultValue: _kHostNube);
 
 /// Configuracion dinamica del entorno.
 ///
@@ -13,6 +17,9 @@ const String _kDefaultHost =
 /// la aplicacion. La IP seleccionada se persiste en SharedPreferences.
 class AppConfig {
   AppConfig._();
+
+  /// El servidor en la nube: el atajo del selector para volver al valor por defecto.
+  static const String hostNube = _kHostNube;
 
   static const _hostKey = 'lumen_host_ip';
   static String _host = _kDefaultHost;
