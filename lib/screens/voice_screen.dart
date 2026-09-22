@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -16,6 +17,7 @@ import '../state/cine_state.dart';
 import '../state/ui_action_handler.dart';
 import '../state/ui_control.dart';
 import '../theme/app_theme.dart';
+import '../utils/responsivo.dart';
 import '../views/cartelera_view.dart';
 import '../views/compra_view.dart';
 import '../views/inicio_view.dart';
@@ -25,11 +27,7 @@ import '../widgets/ventanas_layer.dart';
 import 'login_screen.dart';
 import 'modo_sin_conexion_screen.dart';
 
-const double _kButtonSize = 88;
 const double _kButtonBottomMargin = 20;
-
-/// Alto que ocupa el cuadro de subtitulos (lo que se entendio + la respuesta del asistente) cuando hay algo que mostrar.
-const double _kAltoSubtitulos = 104;
 
 /// Modo "Voz + UI dinamica" del cliente: una conversacion continua con el agente
 /// (WebSocket) mientras la pantalla se mueve sola con lo que va pidiendo
@@ -104,8 +102,9 @@ class _VoiceScreenState extends State<VoiceScreen>
 
   @override
   void dispose() {
-    if (CineApi.onSesionVencida == _sesionVencida)
+    if (CineApi.onSesionVencida == _sesionVencida) {
       CineApi.onSesionVencida = null;
+    }
     _pausaContexto?.cancel();
     _cine.removeListener(_programarContexto);
     _voz.removeListener(_alCambiarVoz);
@@ -161,8 +160,9 @@ class _VoiceScreenState extends State<VoiceScreen>
             null; // conversacion nueva (o reconectada): se vuelve a contar lo marcado
         _programarContexto(inmediato: true);
       }
-      if (estado == EstadoConversacion.error && mounted && _voz.error != null)
+      if (estado == EstadoConversacion.error && mounted && _voz.error != null) {
         _mostrarError(_voz.error!);
+      }
     }
   }
 
@@ -431,14 +431,18 @@ class _VoiceScreenState extends State<VoiceScreen>
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
-    final reserva =
-        _kButtonSize + _kButtonBottomMargin + mq.padding.bottom + 16;
+    final r = Responsivo.de(context);
+    final tamBoton = r.tamanoBoton;
+    final altoSub = r.altoSubtitulos;
+    final reserva = tamBoton + _kButtonBottomMargin + mq.padding.bottom + 16;
     final anchor = Offset(
       mq.size.width / 2,
-      mq.size.height -
-          mq.padding.bottom -
-          _kButtonBottomMargin -
-          _kButtonSize / 2,
+      mq.size.height - mq.padding.bottom - _kButtonBottomMargin - tamBoton / 2,
+    );
+    // En una tablet el contenido queda en una columna centrada; en un telefono ocupa todo el ancho.
+    final margenLado = math.max(
+      r.margenLateral,
+      (r.ancho - r.anchoContenido) / 2 + r.margenLateral,
     );
 
     return ListenableBuilder(
@@ -473,7 +477,14 @@ class _VoiceScreenState extends State<VoiceScreen>
                               ? 0
                               : reserva,
                         ),
-                        child: _vista(),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: r.anchoContenido,
+                            ),
+                            child: _vista(),
+                          ),
+                        ),
                       ),
                     ),
                     // En la compra la barra de resumen (asientos, total, Cancelar/Continuar) va pegada abajo: se le reserva el espacio
@@ -486,9 +497,7 @@ class _VoiceScreenState extends State<VoiceScreen>
                           curve: Curves.easeOutCubic,
                           height:
                               reserva +
-                              (_lineasSubtitulo(_voz).visible
-                                  ? _kAltoSubtitulos
-                                  : 0),
+                              (_lineasSubtitulo(_voz).visible ? altoSub : 0),
                         ),
                       ),
                   ],
@@ -496,11 +505,11 @@ class _VoiceScreenState extends State<VoiceScreen>
               ),
               Positioned.fill(child: _anillos(anchor)),
               Positioned(
-                left: 16,
-                right: 16,
+                left: margenLado,
+                right: margenLado,
                 bottom: reserva - 4,
                 child: SizedBox(
-                  height: _kAltoSubtitulos,
+                  height: altoSub,
                   child: Align(
                     alignment: Alignment.bottomCenter,
                     child: _Subtitulos(voz: _voz),
@@ -590,6 +599,7 @@ class _VoiceScreenState extends State<VoiceScreen>
     return ListenableBuilder(
       listenable: _voz,
       builder: (context, _) {
+        final tamano = Responsivo.de(context).tamanoBoton;
         final silenciado = _voz.silenciado;
         final activa = _voz.conversando;
         final gradiente = silenciado
@@ -639,8 +649,8 @@ class _VoiceScreenState extends State<VoiceScreen>
               return Transform.scale(scale: latido, child: child);
             },
             child: Container(
-              width: _kButtonSize,
-              height: _kButtonSize,
+              width: tamano,
+              height: tamano,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: gradiente,
@@ -658,7 +668,7 @@ class _VoiceScreenState extends State<VoiceScreen>
               ),
               child: Icon(
                 icono,
-                size: 38,
+                size: tamano * 0.43,
                 color: silenciado
                     ? LumenColors.onSurfaceVariant
                     : LumenColors.onPrimaryContainer,
@@ -704,28 +714,32 @@ class _Cabecera extends StatelessWidget {
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icono,
-                  size: 17,
-                  color: activo
-                      ? LumenColors.primary
-                      : LumenColors.onSurfaceVariant,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  texto,
-                  style: TextStyle(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icono,
+                    size: 17,
                     color: activo
                         ? LumenColors.primary
                         : LumenColors.onSurfaceVariant,
-                    fontSize: 12.5,
-                    fontWeight: activo ? FontWeight.w800 : FontWeight.w600,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 5),
+                  Text(
+                    texto,
+                    style: TextStyle(
+                      color: activo
+                          ? LumenColors.primary
+                          : LumenColors.onSurfaceVariant,
+                      fontSize: 12.5,
+                      fontWeight: activo ? FontWeight.w800 : FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

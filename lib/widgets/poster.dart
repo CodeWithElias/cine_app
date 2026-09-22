@@ -9,7 +9,13 @@ class Poster extends StatelessWidget {
   final double? height;
   final double radius;
 
-  const Poster({super.key, required this.url, this.width, this.height, this.radius = 12});
+  const Poster({
+    super.key,
+    required this.url,
+    this.width,
+    this.height,
+    this.radius = 12,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +24,11 @@ class Poster extends StatelessWidget {
       height: height,
       color: LumenColors.surfaceContainerHigh,
       alignment: Alignment.center,
-      child: const Icon(Icons.movie_outlined, color: LumenColors.outline, size: 28),
+      child: const Icon(
+        Icons.movie_outlined,
+        color: LumenColors.outline,
+        size: 28,
+      ),
     );
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
@@ -30,7 +40,8 @@ class Poster extends StatelessWidget {
               height: height,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => vacio,
-              loadingBuilder: (context, child, progress) => progress == null ? child : vacio,
+              loadingBuilder: (context, child, progress) =>
+                  progress == null ? child : vacio,
             ),
     );
   }

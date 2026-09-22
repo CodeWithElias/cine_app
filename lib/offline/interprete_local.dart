@@ -7,7 +7,12 @@ class DatosLocales {
   final List<CompraHistorial> compras;
   final DateTime? guardado;
 
-  const DatosLocales({this.peliculas = const [], this.funciones = const [], this.compras = const [], this.guardado});
+  const DatosLocales({
+    this.peliculas = const [],
+    this.funciones = const [],
+    this.compras = const [],
+    this.guardado,
+  });
 
   bool get vacio => peliculas.isEmpty;
 }
@@ -18,7 +23,11 @@ class RespuestaLocal {
   final String texto;
   final List<Map<String, dynamic>> acciones;
   final bool necesitaConexion;
-  const RespuestaLocal(this.texto, {this.acciones = const [], this.necesitaConexion = false});
+  const RespuestaLocal(
+    this.texto, {
+    this.acciones = const [],
+    this.necesitaConexion = false,
+  });
 }
 
 // ---------------------------------------------------------------------------- texto
@@ -32,7 +41,11 @@ String normalizar(String texto) {
     final i = de.indexOf(c);
     b.write(i >= 0 ? a[i] : c);
   }
-  return b.toString().replaceAll(RegExp(r'[^a-z0-9 ]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  return b
+      .toString()
+      .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 }
 
 /// Con ruido, eco o un trozo de voz muy corto, Whisper inventa frases o entra en bucle ("la tinta de la tinta de la tinta...").
@@ -56,7 +69,10 @@ bool esAlucinacion(String texto) {
   for (final largo in [1, 2, 3]) {
     var seguidas = 1;
     for (var i = largo; i <= palabras.length - largo; i += largo) {
-      final igual = List.generate(largo, (k) => palabras[i + k] == palabras[i - largo + k]).every((x) => x);
+      final igual = List.generate(
+        largo,
+        (k) => palabras[i + k] == palabras[i - largo + k],
+      ).every((x) => x);
       seguidas = igual ? seguidas + 1 : 1;
       if (seguidas >= 4) return true;
     }
@@ -73,7 +89,11 @@ int _distancia(String a, String b) {
     final actual = List<int>.filled(b.length + 1, 0)..[0] = i;
     for (var j = 1; j <= b.length; j++) {
       final costo = a[i - 1] == b[j - 1] ? 0 : 1;
-      actual[j] = [actual[j - 1] + 1, anterior[j] + 1, anterior[j - 1] + costo].reduce((x, y) => x < y ? x : y);
+      actual[j] = [
+        actual[j - 1] + 1,
+        anterior[j] + 1,
+        anterior[j - 1] + costo,
+      ].reduce((x, y) => x < y ? x : y);
     }
     anterior = actual;
   }
@@ -89,9 +109,43 @@ bool _parecidas(String a, String b) {
 
 // ---------------------------------------------------------------------------- fechas y horas habladas
 
-const _numeros = ['doce', 'una', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve', 'diez', 'once'];
-const _diasSemana = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
-const _meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const _numeros = [
+  'doce',
+  'una',
+  'dos',
+  'tres',
+  'cuatro',
+  'cinco',
+  'seis',
+  'siete',
+  'ocho',
+  'nueve',
+  'diez',
+  'once',
+];
+const _diasSemana = [
+  'lunes',
+  'martes',
+  'miércoles',
+  'jueves',
+  'viernes',
+  'sábado',
+  'domingo',
+];
+const _meses = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
 
 /// "20:30:00" -> "las ocho y media de la noche" (para que la voz lo lea como se dice, no como "veinte dos puntos treinta").
 String horaHablada(String horaInicio) {
@@ -102,7 +156,13 @@ String horaHablada(String horaInicio) {
   final hora = (m == 45 ? h24 + 1 : h24) % 24;
   final h12 = hora % 12;
   final articulo = h12 == 1 ? 'la' : 'las';
-  final periodo = hora < 6 ? 'de la madrugada' : hora < 12 ? 'de la mañana' : hora < 19 ? 'de la tarde' : 'de la noche';
+  final periodo = hora < 6
+      ? 'de la madrugada'
+      : hora < 12
+      ? 'de la mañana'
+      : hora < 19
+      ? 'de la tarde'
+      : 'de la noche';
   final minutos = switch (m) {
     0 => '',
     15 => ' y cuarto',
@@ -124,21 +184,41 @@ String diaHablado(String fecha, DateTime ahora) {
   return 'el ${_diasSemana[d.weekday - 1]} ${d.day} de ${_meses[d.month - 1]}';
 }
 
-String _unir(List<String> l) => l.length <= 1 ? l.join() : '${l.sublist(0, l.length - 1).join(', ')} y ${l.last}';
+String _unir(List<String> l) => l.length <= 1
+    ? l.join()
+    : '${l.sublist(0, l.length - 1).join(', ')} y ${l.last}';
 
 // ---------------------------------------------------------------------------- interprete
 
 /// Entiende lo simple sin internet: cartelera, horarios de una pelicula, mis compras y moverse por la app. Para comprar,
 /// pagar o pedir dulceria avisa que hace falta conexion. Trabaja con la copia guardada de los datos.
 class InterpreteLocal {
-  InterpreteLocal(this.datos, {DateTime Function()? ahora}) : _ahora = ahora ?? DateTime.now;
+  InterpreteLocal(this.datos, {DateTime Function()? ahora})
+    : _ahora = ahora ?? DateTime.now;
 
   final DatosLocales datos;
   final DateTime Function() _ahora;
 
-  static const _palabrasVacias = {'de', 'la', 'el', 'los', 'las', 'del', 'y', 'en', 'un', 'una', 'the', 'part', 'parte', 'a', 'al'};
+  static const _palabrasVacias = {
+    'de',
+    'la',
+    'el',
+    'los',
+    'las',
+    'del',
+    'y',
+    'en',
+    'un',
+    'una',
+    'the',
+    'part',
+    'parte',
+    'a',
+    'al',
+  };
 
-  static const _avisoCompra = 'Para comprar necesito conexión a internet. Cuando vuelvas a tenerla, con gusto te ayudo con la compra.';
+  static const _avisoCompra =
+      'Para comprar necesito conexión a internet. Cuando vuelvas a tenerla, con gusto te ayudo con la compra.';
 
   bool _dice(String t, List<String> frases) => frases.any((f) => t.contains(f));
 
@@ -147,38 +227,111 @@ class InterpreteLocal {
     final palabras = t.split(' ').where((p) => p.isNotEmpty).toSet();
 
     // Lo del historial primero: "mis compras" no es comprar.
-    if (_dice(t, ['mis compras', 'mis entradas', 'mis boletos', 'mis reservas', 'que compre', 'compras hice', 'compras que hice', 'historial'])) {
+    if (_dice(t, [
+      'mis compras',
+      'mis entradas',
+      'mis boletos',
+      'mis reservas',
+      'que compre',
+      'compras hice',
+      'compras que hice',
+      'historial',
+    ])) {
       return _misCompras();
     }
 
     // Comprar, pagar, elegir asientos, dulceria, confirmar o cancelar: todo eso necesita el servidor.
-    const verbosDeCompra = ['comprar', 'compra', 'entrada', 'entradas', 'boleto', 'boletos', 'ticket', 'asiento', 'asientos', 'butaca', 'butacas', 'pagar', 'pago', 'reservar', 'reserva', 'dulceria', 'pochoclo', 'pochoclos', 'palomitas', 'gaseosa', 'combo', 'nachos', 'confirmo', 'confirmar', 'cancelar'];
-    if (palabras.any(verbosDeCompra.contains) || _dice(t, ['quiero ver', 'quiero una funcion', 'quiero dos', 'quiero tres'])) {
+    const verbosDeCompra = [
+      'comprar',
+      'compra',
+      'entrada',
+      'entradas',
+      'boleto',
+      'boletos',
+      'ticket',
+      'asiento',
+      'asientos',
+      'butaca',
+      'butacas',
+      'pagar',
+      'pago',
+      'reservar',
+      'reserva',
+      'dulceria',
+      'pochoclo',
+      'pochoclos',
+      'palomitas',
+      'gaseosa',
+      'combo',
+      'nachos',
+      'confirmo',
+      'confirmar',
+      'cancelar',
+    ];
+    if (palabras.any(verbosDeCompra.contains) ||
+        _dice(t, [
+          'quiero ver',
+          'quiero una funcion',
+          'quiero dos',
+          'quiero tres',
+        ])) {
       return const RespuestaLocal(_avisoCompra, necesitaConexion: true);
     }
 
-    if (_dice(t, ['menu principal', 'pantalla principal', 'ir al inicio', 'volver al inicio']) || t == 'inicio') {
-      return const RespuestaLocal('Listo, vamos al inicio.', acciones: [
-        {'tipo': 'navegar', 'destino': 'inicio'},
-      ]);
+    if (_dice(t, [
+          'menu principal',
+          'pantalla principal',
+          'ir al inicio',
+          'volver al inicio',
+        ]) ||
+        t == 'inicio') {
+      return const RespuestaLocal(
+        'Listo, vamos al inicio.',
+        acciones: [
+          {'tipo': 'navegar', 'destino': 'inicio'},
+        ],
+      );
     }
 
     final pelicula = _buscarPelicula(t);
     if (pelicula != null) return _funcionesDe(pelicula);
 
-    if (_dice(t, ['cartelera', 'peliculas', 'pelicula', 'que hay', 'que pasan', 'que dan', 'estrenos', 'que ver'])) return _cartelera();
-
-    if (_dice(t, ['hoy', 'manana', 'funciones', 'horarios', 'a que hora'])) return _funcionesDelDia(t);
-
-    if (palabras.any(const {'hola', 'buenas', 'buenos', 'buen'}.contains) && palabras.length <= 4) {
-      return const RespuestaLocal('¡Hola! Estoy sin conexión, pero puedo decirte la cartelera, los horarios de una película y tus compras.');
+    if (_dice(t, [
+      'cartelera',
+      'peliculas',
+      'pelicula',
+      'que hay',
+      'que pasan',
+      'que dan',
+      'estrenos',
+      'que ver',
+    ])) {
+      return _cartelera();
     }
-    if (palabras.contains('gracias')) return const RespuestaLocal('¡De nada! Aquí estoy para lo que necesites.');
-    if (palabras.any(const {'adios', 'chao', 'chau'}.contains) || _dice(t, ['hasta luego', 'nos vemos'])) {
+
+    if (_dice(t, ['hoy', 'manana', 'funciones', 'horarios', 'a que hora'])) {
+      return _funcionesDelDia(t);
+    }
+
+    if (palabras.any(const {'hola', 'buenas', 'buenos', 'buen'}.contains) &&
+        palabras.length <= 4) {
+      return const RespuestaLocal(
+        '¡Hola! Estoy sin conexión, pero puedo decirte la cartelera, los horarios de una película y tus compras.',
+      );
+    }
+    if (palabras.contains('gracias')) {
+      return const RespuestaLocal(
+        '¡De nada! Aquí estoy para lo que necesites.',
+      );
+    }
+    if (palabras.any(const {'adios', 'chao', 'chau'}.contains) ||
+        _dice(t, ['hasta luego', 'nos vemos'])) {
       return const RespuestaLocal('¡Hasta luego! Que disfrutes la función.');
     }
 
-    return const RespuestaLocal('Sin conexión solo puedo ayudarte con la cartelera, los horarios de una película y tus compras. ¿Qué te gustaría saber?');
+    return const RespuestaLocal(
+      'Sin conexión solo puedo ayudarte con la cartelera, los horarios de una película y tus compras. ¿Qué te gustaría saber?',
+    );
   }
 
   // ---- peliculas
@@ -190,9 +343,14 @@ class InterpreteLocal {
     Pelicula? mejor;
     var mejorPuntaje = 0.0;
     for (final p in datos.peliculas) {
-      final claves = normalizar(p.titulo).split(' ').where((w) => w.isNotEmpty && !_palabrasVacias.contains(w)).toList();
+      final claves = normalizar(p.titulo)
+          .split(' ')
+          .where((w) => w.isNotEmpty && !_palabrasVacias.contains(w))
+          .toList();
       if (claves.isEmpty) continue;
-      final acertadas = claves.where((c) => dichas.any((d) => _parecidas(c, d))).length;
+      final acertadas = claves
+          .where((c) => dichas.any((d) => _parecidas(c, d)))
+          .length;
       final puntaje = acertadas / claves.length;
       if (acertadas >= 1 && puntaje >= 0.5 && puntaje > mejorPuntaje) {
         mejor = p;
@@ -204,24 +362,44 @@ class InterpreteLocal {
 
   List<Funcion> _proximas(Iterable<Funcion> lista) {
     final ahora = _ahora();
-    final futuras = lista.where((f) {
-      final inicio = f.inicio;
-      return f.estado == 'programada' && inicio != null && !inicio.isBefore(ahora);
-    }).toList()
-      ..sort((a, b) => '${a.fecha}${a.horaInicio}'.compareTo('${b.fecha}${b.horaInicio}'));
+    final futuras =
+        lista.where((f) {
+          final inicio = f.inicio;
+          return f.estado == 'programada' &&
+              inicio != null &&
+              !inicio.isBefore(ahora);
+        }).toList()..sort(
+          (a, b) => '${a.fecha}${a.horaInicio}'.compareTo(
+            '${b.fecha}${b.horaInicio}',
+          ),
+        );
     return futuras;
   }
 
   RespuestaLocal _funcionesDe(Pelicula p) {
-    final proximas = _proximas(datos.funciones.where((f) => f.idPelicula == p.idPelicula));
+    final proximas = _proximas(
+      datos.funciones.where((f) => f.idPelicula == p.idPelicula),
+    );
     final accion = [
-      {'tipo': 'cartelera.mostrar', 'ids': [p.idPelicula], 'pausa_ms': 0},
+      {
+        'tipo': 'cartelera.mostrar',
+        'ids': [p.idPelicula],
+        'pausa_ms': 0,
+      },
     ];
     if (proximas.isEmpty) {
-      return RespuestaLocal('«${p.titulo}» está en cartelera, pero no tengo funciones próximas guardadas.', acciones: accion);
+      return RespuestaLocal(
+        '«${p.titulo}» está en cartelera, pero no tengo funciones próximas guardadas.',
+        acciones: accion,
+      );
     }
     final ahora = _ahora();
-    final dichas = proximas.take(4).map((f) => '${diaHablado(f.fecha, ahora)} a ${horaHablada(f.horaInicio)}').toList();
+    final dichas = proximas
+        .take(4)
+        .map(
+          (f) => '${diaHablado(f.fecha, ahora)} a ${horaHablada(f.horaInicio)}',
+        )
+        .toList();
     final resto = proximas.length - dichas.length;
     return RespuestaLocal(
       '«${p.titulo}» tiene funciones ${_unir(dichas)}${resto > 0 ? ' y $resto más' : ''}.',
@@ -230,37 +408,68 @@ class InterpreteLocal {
   }
 
   RespuestaLocal _cartelera() {
-    final activas = datos.peliculas.where((p) => p.estado == 'activa').map((p) => p.titulo).toSet().toList();
+    final activas = datos.peliculas
+        .where((p) => p.estado == 'activa')
+        .map((p) => p.titulo)
+        .toSet()
+        .toList();
     const navegar = [
       {'tipo': 'navegar', 'destino': 'cartelera'},
       {'tipo': 'cartelera.filtrar', 'busqueda': null},
     ];
     if (activas.isEmpty) {
-      return const RespuestaLocal('No tengo guardada la cartelera. Cuando tengas internet la descargo para poder consultarla sin conexión.', acciones: navegar);
+      return const RespuestaLocal(
+        'No tengo guardada la cartelera. Cuando tengas internet la descargo para poder consultarla sin conexión.',
+        acciones: navegar,
+      );
     }
-    if (activas.length == 1) return RespuestaLocal('Hoy tenemos una sola película: ${activas.first}.', acciones: navegar);
+    if (activas.length == 1) {
+      return RespuestaLocal(
+        'Hoy tenemos una sola película: ${activas.first}.',
+        acciones: navegar,
+      );
+    }
     final dichas = activas.take(4).toList();
     final resto = activas.length - dichas.length;
-    final lista = resto > 0 ? '${dichas.join(', ')} y $resto más' : _unir(dichas);
-    return RespuestaLocal('Tenemos ${activas.length} películas en cartelera: $lista. Dime el nombre de una y te digo sus horarios.', acciones: navegar);
+    final lista = resto > 0
+        ? '${dichas.join(', ')} y $resto más'
+        : _unir(dichas);
+    return RespuestaLocal(
+      'Tenemos ${activas.length} películas en cartelera: $lista. Dime el nombre de una y te digo sus horarios.',
+      acciones: navegar,
+    );
   }
 
   RespuestaLocal _funcionesDelDia(String t) {
     final ahora = _ahora();
     final manana = t.contains('manana');
     final dia = manana ? ahora.add(const Duration(days: 1)) : ahora;
-    final fecha = '${dia.year.toString().padLeft(4, '0')}-${dia.month.toString().padLeft(2, '0')}-${dia.day.toString().padLeft(2, '0')}';
+    final fecha =
+        '${dia.year.toString().padLeft(4, '0')}-${dia.month.toString().padLeft(2, '0')}-${dia.day.toString().padLeft(2, '0')}';
     final delDia = _proximas(datos.funciones.where((f) => f.fecha == fecha));
     final palabraDia = manana ? 'mañana' : 'hoy';
     if (delDia.isEmpty) {
-      return RespuestaLocal('No tengo funciones guardadas para $palabraDia. Dime el nombre de una película y te digo sus próximas funciones.');
+      return RespuestaLocal(
+        'No tengo funciones guardadas para $palabraDia. Dime el nombre de una película y te digo sus próximas funciones.',
+      );
     }
-    final titulos = <int, String>{for (final p in datos.peliculas) p.idPelicula: p.titulo};
-    final dichas = delDia.take(4).map((f) => '${titulos[f.idPelicula] ?? 'una película'} a ${horaHablada(f.horaInicio)}').toList();
+    final titulos = <int, String>{
+      for (final p in datos.peliculas) p.idPelicula: p.titulo,
+    };
+    final dichas = delDia
+        .take(4)
+        .map(
+          (f) =>
+              '${titulos[f.idPelicula] ?? 'una película'} a ${horaHablada(f.horaInicio)}',
+        )
+        .toList();
     final resto = delDia.length - dichas.length;
-    return RespuestaLocal('$palabraDia hay ${delDia.length} funciones: ${_unir(dichas)}${resto > 0 ? ' y $resto más' : ''}.', acciones: const [
-      {'tipo': 'navegar', 'destino': 'cartelera'},
-    ]);
+    return RespuestaLocal(
+      '$palabraDia hay ${delDia.length} funciones: ${_unir(dichas)}${resto > 0 ? ' y $resto más' : ''}.',
+      acciones: const [
+        {'tipo': 'navegar', 'destino': 'cartelera'},
+      ],
+    );
   }
 
   // ---- compras
@@ -270,7 +479,10 @@ class InterpreteLocal {
       {'tipo': 'navegar', 'destino': 'mis_compras'},
     ];
     if (datos.compras.isEmpty) {
-      return const RespuestaLocal('No tengo guardadas tus compras. Cuando tengas internet las descargo para verlas sin conexión.', acciones: navegar);
+      return const RespuestaLocal(
+        'No tengo guardadas tus compras. Cuando tengas internet las descargo para verlas sin conexión.',
+        acciones: navegar,
+      );
     }
     final ahora = _ahora();
     final ultima = datos.compras.first;

@@ -17,7 +17,9 @@ class CacheLocal {
   Directory? carpetaDePrueba;
 
   Future<File> _archivo(String clave) async {
-    final base = carpetaDePrueba ?? Directory('${(await getApplicationSupportDirectory()).path}/cache');
+    final base =
+        carpetaDePrueba ??
+        Directory('${(await getApplicationSupportDirectory()).path}/cache');
     if (!await base.exists()) await base.create(recursive: true);
     return File('${base.path}/$clave.json');
   }
@@ -25,7 +27,12 @@ class CacheLocal {
   Future<void> guardar(String clave, Object datos) async {
     try {
       final archivo = await _archivo(clave);
-      await archivo.writeAsString(jsonEncode({'guardado': DateTime.now().toIso8601String(), 'datos': datos}));
+      await archivo.writeAsString(
+        jsonEncode({
+          'guardado': DateTime.now().toIso8601String(),
+          'datos': datos,
+        }),
+      );
     } catch (e) {
       debugPrint('No se pudo guardar la copia local "$clave": $e');
     }
@@ -36,7 +43,8 @@ class CacheLocal {
     try {
       final archivo = await _archivo(clave);
       if (!await archivo.exists()) return null;
-      final json = jsonDecode(await archivo.readAsString()) as Map<String, dynamic>;
+      final json =
+          jsonDecode(await archivo.readAsString()) as Map<String, dynamic>;
       final cuando = DateTime.tryParse('${json['guardado']}');
       if (cuando == null) return null;
       return (guardado: cuando, datos: json['datos']);
@@ -47,11 +55,14 @@ class CacheLocal {
   }
 
   /// Cuando se guardo por ultima vez la cartelera (el dato que se le muestra al cliente); null si nunca.
-  Future<DateTime?> fechaDeCartelera() async => (await leer('peliculas'))?.guardado;
+  Future<DateTime?> fechaDeCartelera() async =>
+      (await leer('peliculas'))?.guardado;
 
   Future<void> borrarTodo() async {
     try {
-      final base = carpetaDePrueba ?? Directory('${(await getApplicationSupportDirectory()).path}/cache');
+      final base =
+          carpetaDePrueba ??
+          Directory('${(await getApplicationSupportDirectory()).path}/cache');
       if (await base.exists()) await base.delete(recursive: true);
     } catch (_) {}
   }

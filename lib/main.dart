@@ -5,8 +5,11 @@ import 'screens/login_screen.dart';
 import 'screens/voice_screen.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
+import 'utils/responsivo.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  fijarOrientacion(); // telefonos: vertical; tablets: libre
   runApp(const CineApp());
 }
 
@@ -19,6 +22,7 @@ class CineApp extends StatelessWidget {
       title: 'Lumen Cinema',
       debugShowCheckedModeBanner: false,
       theme: lumenTheme,
+      builder: adaptarATamano,
       home: const _StartupGate(),
     );
   }

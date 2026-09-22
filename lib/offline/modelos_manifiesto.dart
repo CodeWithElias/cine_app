@@ -12,23 +12,44 @@ const String repoWhisperBase = 'csukuangfj/sherpa-onnx-whisper-base';
 const String repoVozPiper = 'csukuangfj/vits-piper-es_ES-sharvard-medium';
 
 /// Detector de voz (Silero) que publica el proyecto sherpa-onnx.
-const String urlSileroVad = 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx';
+const String urlSileroVad =
+    'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx';
 const int bytesSileroVad = 643854;
 
 const List<ArchivoManifiesto> archivosWhisperTiny = [
-  ('tiny-encoder.int8.onnx', 12937772, 'd24fb083ae3b1041fc24e97971d60e280c9342201fbb67b0ab428a8b4a51a434'),
-  ('tiny-decoder.int8.onnx', 89855401, 'd2fece8dd42771f1df975c6c0445770d0c292bf7547c2cae04a6c0cc57540925'),
+  (
+    'tiny-encoder.int8.onnx',
+    12937772,
+    'd24fb083ae3b1041fc24e97971d60e280c9342201fbb67b0ab428a8b4a51a434',
+  ),
+  (
+    'tiny-decoder.int8.onnx',
+    89855401,
+    'd2fece8dd42771f1df975c6c0445770d0c292bf7547c2cae04a6c0cc57540925',
+  ),
   ('tiny-tokens.txt', 816730, null),
 ];
 
 const List<ArchivoManifiesto> archivosWhisperBase = [
-  ('base-encoder.int8.onnx', 29120534, '0b8fb1304b6109976038efff5ace81720e00386f3ff6b54ee8c75291ca0a1e11'),
-  ('base-decoder.int8.onnx', 130672026, '9759d217388a01b3a4c7c15533201067b48ae819c4daafc8624e64b9409dc02d'),
+  (
+    'base-encoder.int8.onnx',
+    29120534,
+    '0b8fb1304b6109976038efff5ace81720e00386f3ff6b54ee8c75291ca0a1e11',
+  ),
+  (
+    'base-decoder.int8.onnx',
+    130672026,
+    '9759d217388a01b3a4c7c15533201067b48ae819c4daafc8624e64b9409dc02d',
+  ),
   ('base-tokens.txt', 816730, null),
 ];
 
 const List<ArchivoManifiesto> archivosVozPiper = [
-  ('es_ES-sharvard-medium.onnx', 76733743, 'f26006cd03e2d558966fa3c49cfa9361dfa22d72197d74b6b50437cb02b8faaf'),
+  (
+    'es_ES-sharvard-medium.onnx',
+    76733743,
+    'f26006cd03e2d558966fa3c49cfa9361dfa22d72197d74b6b50437cb02b8faaf',
+  ),
   ('tokens.txt', 921, null),
 ];
 
@@ -48,7 +69,11 @@ const List<ArchivoManifiesto> archivosEspeak = [
   ('espeak-ng-data/bs_dict', 47068, null),
   ('espeak-ng-data/ca_dict', 45566, null),
   ('espeak-ng-data/chr_dict', 2859, null),
-  ('espeak-ng-data/cmn_dict', 1566335, '109aaa7708d3727382acb3ae41d8e2094a7e2bb9f651a81835be22a6f08071fe'),
+  (
+    'espeak-ng-data/cmn_dict',
+    1566335,
+    '109aaa7708d3727382acb3ae41d8e2094a7e2bb9f651a81835be22a6f08071fe',
+  ),
   ('espeak-ng-data/cs_dict', 49645, null),
   ('espeak-ng-data/cv_dict', 1344, null),
   ('espeak-ng-data/cy_dict', 43130, null),
@@ -260,7 +285,11 @@ const List<ArchivoManifiesto> archivosEspeak = [
   ('espeak-ng-data/quc_dict', 1450, null),
   ('espeak-ng-data/qya_dict', 1939, null),
   ('espeak-ng-data/ro_dict', 68538, null),
-  ('espeak-ng-data/ru_dict', 8532392, 'f0f6181bbbf9e53cd1e8f9d26bde8fc62119c4f78181948f961cb29866e5e585'),
+  (
+    'espeak-ng-data/ru_dict',
+    8532392,
+    'f0f6181bbbf9e53cd1e8f9d26bde8fc62119c4f78181948f961cb29866e5e585',
+  ),
   ('espeak-ng-data/sd_dict', 59928, null),
   ('espeak-ng-data/shn_dict', 88172, null),
   ('espeak-ng-data/si_dict', 85384, null),

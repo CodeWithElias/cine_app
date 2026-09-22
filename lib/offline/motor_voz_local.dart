@@ -33,12 +33,18 @@ class MotorVozLocal {
   void Function(String mensaje)? onError;
 
   /// Carga los modelos en un isolate y espera a que esten listos (unos segundos la primera vez).
-  static Future<MotorVozLocal> crear(RutasVoz rutas, {Duration espera = const Duration(seconds: 90)}) async {
+  static Future<MotorVozLocal> crear(
+    RutasVoz rutas, {
+    Duration espera = const Duration(seconds: 90),
+  }) async {
     final recibir = ReceivePort();
     final conexion = Completer<SendPort>();
     final listo = Completer<void>();
     MotorVozLocal? motor;
-    final isolate = await Isolate.spawn(_entrada, _Arranque(recibir.sendPort, rutas));
+    final isolate = await Isolate.spawn(
+      _entrada,
+      _Arranque(recibir.sendPort, rutas),
+    );
     recibir.listen((dynamic m) {
       if (m is SendPort) {
         conexion.complete(m);
@@ -60,11 +66,17 @@ class MotorVozLocal {
         case 'texto':
           motor?.onTexto?.call('${m['texto']}');
         case 'voz':
-          final datos = (m['pcm'] as TransferableTypedData).materialize().asUint8List();
+          final datos = (m['pcm'] as TransferableTypedData)
+              .materialize()
+              .asUint8List();
           motor?.onAudioHablado?.call(m['id'] as int, m['tasa'] as int, datos);
       }
     });
-    motor = MotorVozLocal._(await conexion.future.timeout(espera), isolate, recibir);
+    motor = MotorVozLocal._(
+      await conexion.future.timeout(espera),
+      isolate,
+      recibir,
+    );
     try {
       await listo.future.timeout(espera);
     } catch (e) {
@@ -77,7 +89,10 @@ class MotorVozLocal {
   /// Le pasa un trozo del microfono (PCM16 little-endian, 16 kHz, mono).
   void enviarAudio(Uint8List pcm) {
     if (_cerrado) return;
-    _aIsolate.send({'t': 'audio', 'pcm': TransferableTypedData.fromList([pcm])});
+    _aIsolate.send({
+      't': 'audio',
+      'pcm': TransferableTypedData.fromList([pcm]),
+    });
   }
 
   /// Pide decir un texto; el audio llega por [onAudioHablado] con el id que devuelve esto.
@@ -114,7 +129,8 @@ class MotorVozLocal {
     sherpa.OfflineRecognizer? reconocedor;
     sherpa.OfflineTts? tts;
     try {
-      sherpa.initBindings(); // cada isolate carga las bibliotecas nativas por su cuenta
+      sherpa
+          .initBindings(); // cada isolate carga las bibliotecas nativas por su cuenta
       vad = sherpa.VoiceActivityDetector(
         config: sherpa.VadModelConfig(
           sileroVad: sherpa.SileroVadModelConfig(
@@ -130,25 +146,41 @@ class MotorVozLocal {
         ),
         bufferSizeInSeconds: 30,
       );
-      reconocedor = sherpa.OfflineRecognizer(sherpa.OfflineRecognizerConfig(
-        model: sherpa.OfflineModelConfig(
-          whisper: sherpa.OfflineWhisperModelConfig(encoder: a.rutas.encoder, decoder: a.rutas.decoder, language: 'es', task: 'transcribe'),
-          tokens: a.rutas.tokens,
-          modelType: 'whisper',
-          numThreads: 2,
-          debug: false,
+      reconocedor = sherpa.OfflineRecognizer(
+        sherpa.OfflineRecognizerConfig(
+          model: sherpa.OfflineModelConfig(
+            whisper: sherpa.OfflineWhisperModelConfig(
+              encoder: a.rutas.encoder,
+              decoder: a.rutas.decoder,
+              language: 'es',
+              task: 'transcribe',
+            ),
+            tokens: a.rutas.tokens,
+            modelType: 'whisper',
+            numThreads: 2,
+            debug: false,
+          ),
         ),
-      ));
-      tts = sherpa.OfflineTts(sherpa.OfflineTtsConfig(
-        model: sherpa.OfflineTtsModelConfig(
-          vits: sherpa.OfflineTtsVitsModelConfig(model: a.rutas.ttsModelo, tokens: a.rutas.ttsTokens, dataDir: a.rutas.espeakDatos),
-          numThreads: 2,
-          debug: false,
+      );
+      tts = sherpa.OfflineTts(
+        sherpa.OfflineTtsConfig(
+          model: sherpa.OfflineTtsModelConfig(
+            vits: sherpa.OfflineTtsVitsModelConfig(
+              model: a.rutas.ttsModelo,
+              tokens: a.rutas.ttsTokens,
+              dataDir: a.rutas.espeakDatos,
+            ),
+            numThreads: 2,
+            debug: false,
+          ),
         ),
-      ));
+      );
       a.hacia.send({'t': 'listo'});
     } catch (e) {
-      a.hacia.send({'t': 'error', 'm': 'No se pudieron cargar los modelos: $e'});
+      a.hacia.send({
+        't': 'error',
+        'm': 'No se pudieron cargar los modelos: $e',
+      });
       return;
     }
 
@@ -158,7 +190,9 @@ class MotorVozLocal {
       try {
         switch (m['t']) {
           case 'audio':
-            final bytes = (m['pcm'] as TransferableTypedData).materialize().asUint8List();
+            final bytes = (m['pcm'] as TransferableTypedData)
+                .materialize()
+                .asUint8List();
             final muestras = Float32List(bytes.length ~/ 2);
             final datos = ByteData.sublistView(bytes);
             for (var i = 0; i < muestras.length; i++) {
@@ -173,16 +207,27 @@ class MotorVozLocal {
             while (!vad.isEmpty()) {
               final segmento = vad.front();
               vad.pop();
-              if (segmento.samples.length < 4800) continue; // menos de 0,3 s: un ruido, no una frase
+              if (segmento.samples.length < 4800) {
+                continue; // menos de 0,3 s: un ruido, no una frase
+              }
               final flujo = reconocedor.createStream();
-              flujo.acceptWaveform(samples: segmento.samples, sampleRate: 16000);
+              flujo.acceptWaveform(
+                samples: segmento.samples,
+                sampleRate: 16000,
+              );
               reconocedor.decode(flujo);
               final texto = reconocedor.getResult(flujo).text.trim();
               flujo.free();
-              if (texto.isNotEmpty) a.hacia.send({'t': 'texto', 'texto': texto});
+              if (texto.isNotEmpty) {
+                a.hacia.send({'t': 'texto', 'texto': texto});
+              }
             }
           case 'hablar':
-            final voz = tts.generate(text: m['texto'] as String, sid: 0, speed: 1.0);
+            final voz = tts.generate(
+              text: m['texto'] as String,
+              sid: 0,
+              speed: 1.0,
+            );
             final pcm = Int16List(voz.samples.length);
             for (var i = 0; i < pcm.length; i++) {
               pcm[i] = (voz.samples[i].clamp(-1.0, 1.0) * 32767).round();

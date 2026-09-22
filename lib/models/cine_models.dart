@@ -40,26 +40,26 @@ class Pelicula {
   });
 
   factory Pelicula.fromJson(Map<String, dynamic> j) => Pelicula(
-        idPelicula: _int(j['idPelicula']),
-        titulo: _str(j['titulo']) ?? '',
-        genero: _str(j['genero']),
-        duracionMin: _int(j['duracionMin']),
-        clasificacion: _str(j['clasificacion']),
-        estado: _str(j['estado']) ?? 'activa',
-        posterUrl: _str(j['posterUrl']),
-        sinopsis: _str(j['sinopsis']),
-      );
+    idPelicula: _int(j['idPelicula']),
+    titulo: _str(j['titulo']) ?? '',
+    genero: _str(j['genero']),
+    duracionMin: _int(j['duracionMin']),
+    clasificacion: _str(j['clasificacion']),
+    estado: _str(j['estado']) ?? 'activa',
+    posterUrl: _str(j['posterUrl']),
+    sinopsis: _str(j['sinopsis']),
+  );
 
   Map<String, dynamic> toJson() => {
-        'idPelicula': idPelicula,
-        'titulo': titulo,
-        'genero': genero,
-        'duracionMin': duracionMin,
-        'clasificacion': clasificacion,
-        'estado': estado,
-        'posterUrl': posterUrl,
-        'sinopsis': sinopsis,
-      };
+    'idPelicula': idPelicula,
+    'titulo': titulo,
+    'genero': genero,
+    'duracionMin': duracionMin,
+    'clasificacion': clasificacion,
+    'estado': estado,
+    'posterUrl': posterUrl,
+    'sinopsis': sinopsis,
+  };
 }
 
 class Funcion {
@@ -84,26 +84,26 @@ class Funcion {
   });
 
   factory Funcion.fromJson(Map<String, dynamic> j) => Funcion(
-        idFuncion: _int(j['idFuncion']),
-        idPelicula: _int(j['idPelicula']),
-        idSala: _int(j['idSala']),
-        idPrecio: j['idPrecio'] == null ? null : _int(j['idPrecio']),
-        fecha: _str(j['fecha']) ?? '',
-        horaInicio: _str(j['horaInicio']) ?? '',
-        horaFin: _str(j['horaFin']) ?? '',
-        estado: _str(j['estado']) ?? 'programada',
-      );
+    idFuncion: _int(j['idFuncion']),
+    idPelicula: _int(j['idPelicula']),
+    idSala: _int(j['idSala']),
+    idPrecio: j['idPrecio'] == null ? null : _int(j['idPrecio']),
+    fecha: _str(j['fecha']) ?? '',
+    horaInicio: _str(j['horaInicio']) ?? '',
+    horaFin: _str(j['horaFin']) ?? '',
+    estado: _str(j['estado']) ?? 'programada',
+  );
 
   Map<String, dynamic> toJson() => {
-        'idFuncion': idFuncion,
-        'idPelicula': idPelicula,
-        'idSala': idSala,
-        'idPrecio': idPrecio,
-        'fecha': fecha,
-        'horaInicio': horaInicio,
-        'horaFin': horaFin,
-        'estado': estado,
-      };
+    'idFuncion': idFuncion,
+    'idPelicula': idPelicula,
+    'idSala': idSala,
+    'idPrecio': idPrecio,
+    'fecha': fecha,
+    'horaInicio': horaInicio,
+    'horaFin': horaFin,
+    'estado': estado,
+  };
 
   /// Inicio de la funcion como fecha (hora local del dispositivo).
   DateTime? get inicio => DateTime.tryParse('${fecha}T$horaInicio');
@@ -117,10 +117,10 @@ class Sala {
   const Sala({required this.idSala, required this.nombre, this.tipo});
 
   factory Sala.fromJson(Map<String, dynamic> j) => Sala(
-        idSala: _int(j['idSala']),
-        nombre: _str(j['nombre']) ?? 'Sala',
-        tipo: _str(j['tipo']),
-      );
+    idSala: _int(j['idSala']),
+    nombre: _str(j['nombre']) ?? 'Sala',
+    tipo: _str(j['tipo']),
+  );
 }
 
 /// Un asiento de la sala con su estado para una funcion concreta
@@ -167,12 +167,12 @@ class Butaca {
   });
 
   factory Butaca.fromJson(Map<String, dynamic> j) => Butaca(
-        id: _str(j['id']) ?? '',
-        idAsiento: _int(j['idAsiento']),
-        fila: _str(j['fila']) ?? '',
-        columna: _int(j['columna']),
-        precio: _num(j['precio']),
-      );
+    id: _str(j['id']) ?? '',
+    idAsiento: _int(j['idAsiento']),
+    fila: _str(j['fila']) ?? '',
+    columna: _int(j['columna']),
+    precio: _num(j['precio']),
+  );
 }
 
 class CategoriaDulceria {
@@ -181,12 +181,16 @@ class CategoriaDulceria {
 
   const CategoriaDulceria({required this.idCategoria, required this.nombre});
 
-  factory CategoriaDulceria.fromJson(Map<String, dynamic> j) => CategoriaDulceria(
+  factory CategoriaDulceria.fromJson(Map<String, dynamic> j) =>
+      CategoriaDulceria(
         idCategoria: _int(j['idCategoria']),
         nombre: _str(j['nombre']) ?? '',
       );
 
-  Map<String, dynamic> toJson() => {'idCategoria': idCategoria, 'nombre': nombre};
+  Map<String, dynamic> toJson() => {
+    'idCategoria': idCategoria,
+    'nombre': nombre,
+  };
 }
 
 class ProductoDulceria {
@@ -209,24 +213,24 @@ class ProductoDulceria {
   });
 
   factory ProductoDulceria.fromJson(Map<String, dynamic> j) => ProductoDulceria(
-        idProducto: _int(j['idProducto']),
-        idCategoria: _int(j['idCategoria']),
-        nombre: _str(j['nombre']) ?? '',
-        descripcion: _str(j['descripcion']),
-        precioBase: _num(j['precioBase']),
-        disponible: j['disponible'] != false,
-        imagenUrl: _str(j['imagenUrl']),
-      );
+    idProducto: _int(j['idProducto']),
+    idCategoria: _int(j['idCategoria']),
+    nombre: _str(j['nombre']) ?? '',
+    descripcion: _str(j['descripcion']),
+    precioBase: _num(j['precioBase']),
+    disponible: j['disponible'] != false,
+    imagenUrl: _str(j['imagenUrl']),
+  );
 
   Map<String, dynamic> toJson() => {
-        'idProducto': idProducto,
-        'idCategoria': idCategoria,
-        'nombre': nombre,
-        'descripcion': descripcion,
-        'precioBase': precioBase,
-        'disponible': disponible,
-        'imagenUrl': imagenUrl,
-      };
+    'idProducto': idProducto,
+    'idCategoria': idCategoria,
+    'nombre': nombre,
+    'descripcion': descripcion,
+    'precioBase': precioBase,
+    'disponible': disponible,
+    'imagenUrl': imagenUrl,
+  };
 }
 
 class ItemDulceria {
@@ -247,22 +251,22 @@ class ItemDulceria {
   });
 
   factory ItemDulceria.fromJson(Map<String, dynamic> j) => ItemDulceria(
-        id: _str(j['id']) ?? '',
-        nombre: _str(j['nombre']) ?? '',
-        descripcion: _str(j['descripcion']) ?? '',
-        precio: _num(j['precio']),
-        imagenUrl: _str(j['imagenUrl']) ?? '',
-        cantidad: _int(j['cantidad']),
-      );
+    id: _str(j['id']) ?? '',
+    nombre: _str(j['nombre']) ?? '',
+    descripcion: _str(j['descripcion']) ?? '',
+    precio: _num(j['precio']),
+    imagenUrl: _str(j['imagenUrl']) ?? '',
+    cantidad: _int(j['cantidad']),
+  );
 
   ItemDulceria conCantidad(int c) => ItemDulceria(
-        id: id,
-        nombre: nombre,
-        descripcion: descripcion,
-        precio: precio,
-        imagenUrl: imagenUrl,
-        cantidad: c,
-      );
+    id: id,
+    nombre: nombre,
+    descripcion: descripcion,
+    precio: precio,
+    imagenUrl: imagenUrl,
+    cantidad: c,
+  );
 }
 
 class Venta {
@@ -287,24 +291,24 @@ class Venta {
   });
 
   factory Venta.fromJson(Map<String, dynamic> j) => Venta(
-        idVenta: _int(j['idVenta']),
-        idFuncion: _int(j['idFuncion']),
-        total: _num(j['total']),
-        estado: _str(j['estado']) ?? '',
-        metodoPagoElegido: _str(j['metodoPagoElegido']),
-        fechaHora: _str(j['fechaHora']),
-        tipoRegistro: _str(j['tipoRegistro']) ?? 'manual',
-      );
+    idVenta: _int(j['idVenta']),
+    idFuncion: _int(j['idFuncion']),
+    total: _num(j['total']),
+    estado: _str(j['estado']) ?? '',
+    metodoPagoElegido: _str(j['metodoPagoElegido']),
+    fechaHora: _str(j['fechaHora']),
+    tipoRegistro: _str(j['tipoRegistro']) ?? 'manual',
+  );
 
   Map<String, dynamic> toJson() => {
-        'idVenta': idVenta,
-        'idFuncion': idFuncion,
-        'total': total,
-        'estado': estado,
-        'metodoPagoElegido': metodoPagoElegido,
-        'fechaHora': fechaHora,
-        'tipoRegistro': tipoRegistro,
-      };
+    'idVenta': idVenta,
+    'idFuncion': idFuncion,
+    'total': total,
+    'estado': estado,
+    'metodoPagoElegido': metodoPagoElegido,
+    'fechaHora': fechaHora,
+    'tipoRegistro': tipoRegistro,
+  };
 }
 
 /// `GET /pagos/config`: si el pago con tarjeta esta disponible y con que clave PUBLICABLE de Stripe
@@ -314,7 +318,11 @@ class ConfigPagos {
   final String clavePublicable;
   final String moneda;
 
-  const ConfigPagos({required this.habilitado, required this.clavePublicable, required this.moneda});
+  const ConfigPagos({
+    required this.habilitado,
+    required this.clavePublicable,
+    required this.moneda,
+  });
 
   factory ConfigPagos.fromJson(Map<String, dynamic> j) {
     final s = (j['stripe'] as Map?)?.cast<String, dynamic>() ?? const {};
@@ -332,13 +340,17 @@ class InicioPagoStripe {
   final int idVenta;
   final String clientSecret;
 
-  const InicioPagoStripe({required this.idPago, required this.idVenta, required this.clientSecret});
+  const InicioPagoStripe({
+    required this.idPago,
+    required this.idVenta,
+    required this.clientSecret,
+  });
 
   factory InicioPagoStripe.fromJson(Map<String, dynamic> j) => InicioPagoStripe(
-        idPago: _int(j['idPago']),
-        idVenta: _int(j['idVenta']),
-        clientSecret: _str(j['clientSecret']) ?? '',
-      );
+    idPago: _int(j['idPago']),
+    idVenta: _int(j['idVenta']),
+    clientSecret: _str(j['clientSecret']) ?? '',
+  );
 }
 
 /// `POST /pagos/:id/verificar`: el SERVIDOR le pregunta a Stripe como quedo el cobro; la venta solo
@@ -348,13 +360,17 @@ class VerificacionPago {
   final Venta venta;
   final String? mensaje;
 
-  const VerificacionPago({required this.estado, required this.venta, this.mensaje});
+  const VerificacionPago({
+    required this.estado,
+    required this.venta,
+    this.mensaje,
+  });
 
   factory VerificacionPago.fromJson(Map<String, dynamic> j) => VerificacionPago(
-        estado: _str(j['estado']) ?? '',
-        venta: Venta.fromJson((j['venta'] as Map).cast<String, dynamic>()),
-        mensaje: _str(j['mensaje']),
-      );
+    estado: _str(j['estado']) ?? '',
+    venta: Venta.fromJson((j['venta'] as Map).cast<String, dynamic>()),
+    mensaje: _str(j['mensaje']),
+  );
 }
 
 /// Una compra del historial (`GET /ventas`), con su funcion, pelicula y sala.
@@ -387,14 +403,14 @@ class CompraHistorial {
   }
 
   Map<String, dynamic> toJson() => {
-        ...venta.toJson(),
-        'funcion': {
-          'fecha': fecha,
-          'horaInicio': horaInicio,
-          'pelicula': {'titulo': pelicula},
-          'sala': {'nombre': sala},
-        },
-      };
+    ...venta.toJson(),
+    'funcion': {
+      'fecha': fecha,
+      'horaInicio': horaInicio,
+      'pelicula': {'titulo': pelicula},
+      'sala': {'nombre': sala},
+    },
+  };
 }
 
 /// Detalle de una compra (`GET /ventas/:id`): asientos y dulceria.
@@ -409,7 +425,9 @@ class DetalleCompra {
     final dulces = (j['detalleDulceria'] as List?) ?? const [];
     return DetalleCompra(
       asientos: entradas.map((e) {
-        final a = ((e as Map)['asiento'] as Map?)?.cast<String, dynamic>() ?? const {};
+        final a =
+            ((e as Map)['asiento'] as Map?)?.cast<String, dynamic>() ??
+            const {};
         return '${_str(a['fila']) ?? ''}${_str(a['numero']) ?? ''}';
       }).toList(),
       dulceria: dulces.map((d) {
@@ -421,10 +439,15 @@ class DetalleCompra {
   }
 }
 
-enum EstadoCompra { seleccionandoAsientos, seleccionandoCandybar, pago, completado }
+enum EstadoCompra {
+  seleccionandoAsientos,
+  seleccionandoCandybar,
+  pago,
+  completado,
+}
 
 EstadoCompra estadoCompraDeDestino(String destino) => switch (destino) {
-      'candybar' => EstadoCompra.seleccionandoCandybar,
-      'pago' => EstadoCompra.pago,
-      _ => EstadoCompra.seleccionandoAsientos,
-    };
+  'candybar' => EstadoCompra.seleccionandoCandybar,
+  'pago' => EstadoCompra.pago,
+  _ => EstadoCompra.seleccionandoAsientos,
+};

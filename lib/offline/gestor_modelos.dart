@@ -16,7 +16,12 @@ class ArchivoDescarga {
   final String ruta;
   final int bytes;
   final String? sha256;
-  const ArchivoDescarga({required this.url, required this.ruta, required this.bytes, this.sha256});
+  const ArchivoDescarga({
+    required this.url,
+    required this.ruta,
+    required this.bytes,
+    this.sha256,
+  });
 }
 
 /// Un modelo descargable (o un grupo de archivos que van juntos).
@@ -25,17 +30,35 @@ class PaqueteModelo {
   final String nombre;
   final String descripcion;
   final List<ArchivoDescarga> archivos;
-  const PaqueteModelo({required this.id, required this.nombre, required this.descripcion, required this.archivos});
+  const PaqueteModelo({
+    required this.id,
+    required this.nombre,
+    required this.descripcion,
+    required this.archivos,
+  });
 
   int get bytesTotal => archivos.fold(0, (a, f) => a + f.bytes);
 }
 
-List<ArchivoDescarga> _delHub(String repo, List<ArchivoManifiesto> lista, {String prefijoLocal = ''}) => [
-      for (final (ruta, bytes, sha) in lista)
-        ArchivoDescarga(url: 'https://huggingface.co/$repo/resolve/main/$ruta', ruta: '$prefijoLocal$ruta', bytes: bytes, sha256: sha),
-    ];
+List<ArchivoDescarga> _delHub(
+  String repo,
+  List<ArchivoManifiesto> lista, {
+  String prefijoLocal = '',
+}) => [
+  for (final (ruta, bytes, sha) in lista)
+    ArchivoDescarga(
+      url: 'https://huggingface.co/$repo/resolve/main/$ruta',
+      ruta: '$prefijoLocal$ruta',
+      bytes: bytes,
+      sha256: sha,
+    ),
+];
 
-const _archivoVad = ArchivoDescarga(url: urlSileroVad, ruta: 'silero_vad.onnx', bytes: bytesSileroVad);
+const _archivoVad = ArchivoDescarga(
+  url: urlSileroVad,
+  ruta: 'silero_vad.onnx',
+  bytes: bytesSileroVad,
+);
 
 /// Los modelos que se pueden llevar al telefono. `stt_*` = entender la voz (Whisper + detector de voz), `tts` = hablar (Piper).
 final List<PaqueteModelo> paquetesDisponibles = [
@@ -48,18 +71,24 @@ final List<PaqueteModelo> paquetesDisponibles = [
   PaqueteModelo(
     id: 'stt_base',
     nombre: 'Reconocimiento de voz · preciso',
-    descripcion: 'Whisper base. Entiende mejor (nombres de películas), pesa más y es más lento.',
+    descripcion:
+        'Whisper base. Entiende mejor (nombres de películas), pesa más y es más lento.',
     archivos: [..._delHub(repoWhisperBase, archivosWhisperBase), _archivoVad],
   ),
   PaqueteModelo(
     id: 'tts',
     nombre: 'Voz del asistente',
-    descripcion: 'La misma voz en español que usa el asistente en línea (Piper).',
-    archivos: [..._delHub(repoVozPiper, archivosVozPiper), ..._delHub(repoVozPiper, archivosEspeak)],
+    descripcion:
+        'La misma voz en español que usa el asistente en línea (Piper).',
+    archivos: [
+      ..._delHub(repoVozPiper, archivosVozPiper),
+      ..._delHub(repoVozPiper, archivosEspeak),
+    ],
   ),
 ];
 
-PaqueteModelo paquete(String id) => paquetesDisponibles.firstWhere((p) => p.id == id);
+PaqueteModelo paquete(String id) =>
+    paquetesDisponibles.firstWhere((p) => p.id == id);
 
 enum EstadoPaquete { noDescargado, descargando, pausado, listo, error }
 
@@ -104,10 +133,11 @@ class GestorModelos extends ChangeNotifier {
     List<PaqueteModelo>? paquetes,
     Future<List<ConnectivityResult>> Function()? conectividad,
     http.Client Function()? clienteHttp,
-  })  : _raizFija = raiz,
-        _paquetes = paquetes ?? paquetesDisponibles,
-        _conectividad = conectividad ?? (() => Connectivity().checkConnectivity()),
-        _nuevoCliente = clienteHttp ?? http.Client.new;
+  }) : _raizFija = raiz,
+       _paquetes = paquetes ?? paquetesDisponibles,
+       _conectividad =
+           conectividad ?? (() => Connectivity().checkConnectivity()),
+       _nuevoCliente = clienteHttp ?? http.Client.new;
 
   static final GestorModelos instance = GestorModelos();
 
@@ -127,8 +157,12 @@ class GestorModelos extends ChangeNotifier {
   bool preferirLocal = false;
   String sttElegido = 'stt_tiny';
 
-  late final Map<String, EstadoPaquete> _estado = {for (final p in _paquetes) p.id: EstadoPaquete.noDescargado};
-  late final Map<String, int> _descargados = {for (final p in _paquetes) p.id: 0};
+  late final Map<String, EstadoPaquete> _estado = {
+    for (final p in _paquetes) p.id: EstadoPaquete.noDescargado,
+  };
+  late final Map<String, int> _descargados = {
+    for (final p in _paquetes) p.id: 0,
+  };
   final Map<String, String?> _error = {};
 
   bool _pausaPedida = false;
@@ -145,10 +179,12 @@ class GestorModelos extends ChangeNotifier {
     return total == 0 ? 0 : (_descargados[id]! / total).clamp(0.0, 1.0);
   }
 
-  bool get descargando => _estado.values.any((e) => e == EstadoPaquete.descargando);
+  bool get descargando =>
+      _estado.values.any((e) => e == EstadoPaquete.descargando);
 
   /// Hay reconocimiento de voz y voz del asistente: el modo sin conexion se puede usar.
-  bool get listoParaVoz => sttActivo != null && estado('tts') == EstadoPaquete.listo;
+  bool get listoParaVoz =>
+      sttActivo != null && estado('tts') == EstadoPaquete.listo;
 
   /// El reconocimiento de voz que se usaria: el elegido si esta listo, si no el otro.
   String? get sttActivo {
@@ -162,7 +198,9 @@ class GestorModelos extends ChangeNotifier {
   // ------------------------------------------------------------------ inicio y ajustes
 
   Future<Directory> _carpeta(String id) async {
-    final raiz = _raizFija ?? Directory('${(await getApplicationSupportDirectory()).path}/modelos');
+    final raiz =
+        _raizFija ??
+        Directory('${(await getApplicationSupportDirectory()).path}/modelos');
     return Directory('${raiz.path}/$id');
   }
 
@@ -176,7 +214,8 @@ class GestorModelos extends ChangeNotifier {
     } catch (_) {}
     for (final p in _paquetes) {
       final dir = await _carpeta(p.id);
-      if (await File('${dir.path}/$_marcaListo').exists() && await _completo(p, dir)) {
+      if (await File('${dir.path}/$_marcaListo').exists() &&
+          await _completo(p, dir)) {
         _estado[p.id] = EstadoPaquete.listo;
         _descargados[p.id] = p.bytesTotal;
       } else if (await _hayParciales(dir)) {
@@ -269,17 +308,27 @@ class GestorModelos extends ChangeNotifier {
     for (final id in [sttElegido, 'tts']) {
       if (estado(id) == EstadoPaquete.listo) continue;
       await descargar(id);
-      if (estado(id) != EstadoPaquete.listo) return; // se pauso o fallo: no se sigue con el otro
+      if (estado(id) != EstadoPaquete.listo) {
+        return; // se pauso o fallo: no se sigue con el otro
+      }
     }
   }
 
   Future<void> _comprobarRed() async {
     final r = await _conectividad();
     final hayRed = r.any((c) => c != ConnectivityResult.none);
-    if (!hayRed) throw DescargaException('Sin conexión a internet. Conéctate para descargar.');
-    final buena = r.contains(ConnectivityResult.wifi) || r.contains(ConnectivityResult.ethernet);
+    if (!hayRed) {
+      throw DescargaException(
+        'Sin conexión a internet. Conéctate para descargar.',
+      );
+    }
+    final buena =
+        r.contains(ConnectivityResult.wifi) ||
+        r.contains(ConnectivityResult.ethernet);
     if (soloWifi && !buena) {
-      throw DescargaException('Estás con datos móviles. Conéctate a Wi‑Fi o desactiva «Solo por Wi‑Fi».');
+      throw DescargaException(
+        'Estás con datos móviles. Conéctate a Wi‑Fi o desactiva «Solo por Wi‑Fi».',
+      );
     }
   }
 
@@ -295,7 +344,9 @@ class GestorModelos extends ChangeNotifier {
     try {
       await _comprobarRed();
       await dir.create(recursive: true);
-      await File('${dir.path}/$_marcaListo').delete().catchError((Object _) => File(''));
+      await File(
+        '${dir.path}/$_marcaListo',
+      ).delete().catchError((Object _) => File(''));
       _descargados[id] = 0;
 
       // Los archivos ya completos cuentan de entrada; los que faltan se bajan. Los grandes de a uno; los chicos (los
@@ -309,8 +360,12 @@ class GestorModelos extends ChangeNotifier {
           pendientes.add(a);
         }
       }
-      final grandes = pendientes.where((a) => a.bytes > 5 * 1024 * 1024).toList();
-      final chicos = pendientes.where((a) => a.bytes <= 5 * 1024 * 1024).toList();
+      final grandes = pendientes
+          .where((a) => a.bytes > 5 * 1024 * 1024)
+          .toList();
+      final chicos = pendientes
+          .where((a) => a.bytes <= 5 * 1024 * 1024)
+          .toList();
 
       void suma(int delta) {
         _descargados[id] = _descargados[id]! + delta;
@@ -332,7 +387,9 @@ class GestorModelos extends ChangeNotifier {
 
       await Future.wait([for (var i = 0; i < _paralelos; i++) obrero()]);
 
-      await File('${dir.path}/$_marcaListo').writeAsString(DateTime.now().toIso8601String());
+      await File(
+        '${dir.path}/$_marcaListo',
+      ).writeAsString(DateTime.now().toIso8601String());
       _estado[id] = EstadoPaquete.listo;
       _descargados[id] = p.bytesTotal;
     } on _Pausa {
@@ -353,10 +410,13 @@ class GestorModelos extends ChangeNotifier {
 
   String _mensajeDe(Object e) {
     if (e is DescargaException) return e.mensaje;
-    if (e is FileSystemException && (e.osError?.errorCode == 112 || e.osError?.errorCode == 28)) {
+    if (e is FileSystemException &&
+        (e.osError?.errorCode == 112 || e.osError?.errorCode == 28)) {
       return 'No hay espacio suficiente en el teléfono.';
     }
-    if (e is SocketException || e is http.ClientException || e is TimeoutException) {
+    if (e is SocketException ||
+        e is http.ClientException ||
+        e is TimeoutException) {
       return 'Se cortó la conexión. Toca «Reanudar» para seguir donde quedó.';
     }
     return 'No se pudo descargar: $e';
@@ -376,7 +436,11 @@ class GestorModelos extends ChangeNotifier {
     _cliente?.close();
   }
 
-  Future<void> _bajarArchivo(ArchivoDescarga a, Directory dir, void Function(int) suma) async {
+  Future<void> _bajarArchivo(
+    ArchivoDescarga a,
+    Directory dir,
+    void Function(int) suma,
+  ) async {
     final destino = File('${dir.path}/${a.ruta}');
     await destino.parent.create(recursive: true);
     final parcial = File('${destino.path}.part');
@@ -385,29 +449,41 @@ class GestorModelos extends ChangeNotifier {
       await parcial.delete();
       existentes = 0;
     }
-    if (existentes > 0) suma(existentes); // lo que ya estaba bajado cuenta para el progreso
+    if (existentes > 0) {
+      suma(existentes); // lo que ya estaba bajado cuenta para el progreso
+    }
 
     if (existentes < a.bytes) {
       final pedido = http.Request('GET', Uri.parse(a.url));
       if (existentes > 0) pedido.headers['Range'] = 'bytes=$existentes-';
-      final respuesta = await _cliente!.send(pedido).timeout(const Duration(seconds: 30));
+      final respuesta = await _cliente!
+          .send(pedido)
+          .timeout(const Duration(seconds: 30));
       if (respuesta.statusCode == 416) {
         // El servidor dice que ya no hay mas que bajar desde ahi: se empieza de cero para no quedar con un archivo raro.
         await parcial.delete();
         suma(-existentes);
-        throw DescargaException('El servidor no aceptó reanudar. Vuelve a tocar «Descargar».');
+        throw DescargaException(
+          'El servidor no aceptó reanudar. Vuelve a tocar «Descargar».',
+        );
       }
       if (respuesta.statusCode != 200 && respuesta.statusCode != 206) {
-        throw DescargaException('El servidor respondió ${respuesta.statusCode} al bajar ${a.ruta}.');
+        throw DescargaException(
+          'El servidor respondió ${respuesta.statusCode} al bajar ${a.ruta}.',
+        );
       }
       final retoma = respuesta.statusCode == 206 && existentes > 0;
       if (!retoma && existentes > 0) {
         suma(-existentes); // el servidor ignoro el Range y manda todo otra vez
         existentes = 0;
       }
-      final sink = parcial.openWrite(mode: retoma ? FileMode.append : FileMode.write);
+      final sink = parcial.openWrite(
+        mode: retoma ? FileMode.append : FileMode.write,
+      );
       try {
-        await for (final trozo in respuesta.stream.timeout(const Duration(seconds: 30))) {
+        await for (final trozo in respuesta.stream.timeout(
+          const Duration(seconds: 30),
+        )) {
           if (_pausaPedida) throw _Pausa();
           sink.add(trozo);
           suma(trozo.length);
@@ -421,13 +497,17 @@ class GestorModelos extends ChangeNotifier {
     final tamano = await parcial.length();
     if (tamano != a.bytes) {
       await parcial.delete();
-      throw DescargaException('${a.ruta} llegó incompleto ($tamano de ${a.bytes} bytes). Vuelve a intentar.');
+      throw DescargaException(
+        '${a.ruta} llegó incompleto ($tamano de ${a.bytes} bytes). Vuelve a intentar.',
+      );
     }
     if (a.sha256 != null) {
       final huella = (await sha256.bind(parcial.openRead()).first).toString();
       if (huella != a.sha256) {
         await parcial.delete();
-        throw DescargaException('${a.ruta} llegó dañado (no coincide su huella). Vuelve a intentar.');
+        throw DescargaException(
+          '${a.ruta} llegó dañado (no coincide su huella). Vuelve a intentar.',
+        );
       }
     }
     await parcial.rename(destino.path);

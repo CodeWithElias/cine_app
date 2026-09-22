@@ -52,7 +52,10 @@ class UiControl extends ChangeNotifier {
 
   void filtrarCartelera({String? busqueda, String? dia}) {
     final b = busqueda?.trim();
-    filtro = FiltroCartelera(busqueda: (b == null || b.isEmpty) ? null : b, dia: dia);
+    filtro = FiltroCartelera(
+      busqueda: (b == null || b.isEmpty) ? null : b,
+      dia: dia,
+    );
     filtroN++;
     notifyListeners();
   }

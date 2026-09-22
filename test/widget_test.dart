@@ -6,7 +6,10 @@ void main() {
   test('el theme de Lumen Cinema usa los colores de marca', () {
     expect(lumenTheme.colorScheme.primary, LumenColors.primary);
     expect(lumenTheme.colorScheme.secondary, LumenColors.secondary);
-    expect(lumenTheme.scaffoldBackgroundColor, LumenColors.surfaceContainerLowest);
+    expect(
+      lumenTheme.scaffoldBackgroundColor,
+      LumenColors.surfaceContainerLowest,
+    );
   });
 
   // Nota: no se agrega un widget test de arranque completo (pumpWidget(CineApp()))

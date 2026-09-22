@@ -26,7 +26,9 @@ class SinConexion {
     try {
       final redes = await Connectivity().checkConnectivity();
       if (redes.every((r) => r == ConnectivityResult.none)) return false;
-      final r = await http.get(Uri.parse('$kVoiceAgentUrl/')).timeout(const Duration(milliseconds: 2500));
+      final r = await http
+          .get(Uri.parse('$kVoiceAgentUrl/'))
+          .timeout(const Duration(milliseconds: 2500));
       return r.statusCode < 500;
     } catch (_) {
       return false;
@@ -42,7 +44,9 @@ class SinConexion {
 
   Future<MotorVozLocal> crearMotor() async {
     final rutas = await gestor.rutasVoz();
-    if (rutas == null) throw StateError('El modo sin conexión no está descargado.');
+    if (rutas == null) {
+      throw StateError('El modo sin conexión no está descargado.');
+    }
     return MotorVozLocal.crear(rutas);
   }
 
@@ -52,18 +56,35 @@ class SinConexion {
     final peliculas = await cache.leer('peliculas');
     final funciones = await cache.leer('funciones');
     final idUsuario = AuthService.instance.usuario?.idUsuario;
-    final compras = idUsuario == null ? null : await cache.leer('compras_$idUsuario');
+    final compras = idUsuario == null
+        ? null
+        : await cache.leer('compras_$idUsuario');
 
-    List<T> lista<T>(({DateTime guardado, dynamic datos})? c, T Function(Map<String, dynamic>) desde) =>
-        c == null ? <T>[] : [for (final e in (c.datos as List)) desde((e as Map).cast<String, dynamic>())];
+    List<T> lista<T>(
+      ({DateTime guardado, dynamic datos})? c,
+      T Function(Map<String, dynamic>) desde,
+    ) => c == null
+        ? <T>[]
+        : [
+            for (final e in (c.datos as List))
+              desde((e as Map).cast<String, dynamic>()),
+          ];
 
     return DatosLocales(
-      peliculas: lista(peliculas, Pelicula.fromJson).where((p) => p.estado == 'activa').toList(),
+      peliculas: lista(
+        peliculas,
+        Pelicula.fromJson,
+      ).where((p) => p.estado == 'activa').toList(),
       funciones: lista(funciones, Funcion.fromJson),
-      compras: lista(compras, CompraHistorial.fromJson)..sort((a, b) => (b.venta.fechaHora ?? '').compareTo(a.venta.fechaHora ?? '')),
+      compras: lista(compras, CompraHistorial.fromJson)
+        ..sort(
+          (a, b) =>
+              (b.venta.fechaHora ?? '').compareTo(a.venta.fechaHora ?? ''),
+        ),
       guardado: peliculas?.guardado,
     );
   }
 
-  Future<RespuestaLocal> interpretar(String texto) async => InterpreteLocal(await cargarDatos()).interpretar(texto);
+  Future<RespuestaLocal> interpretar(String texto) async =>
+      InterpreteLocal(await cargarDatos()).interpretar(texto);
 }

@@ -42,14 +42,20 @@ class CineState extends ChangeNotifier {
   // ---------------------------------------------------------------- derivados
 
   double get totalEntradas => butacas.fold(0, (a, b) => a + b.precio);
-  double get totalDulceria => dulceria.fold(0, (a, i) => a + i.precio * i.cantidad);
+  double get totalDulceria =>
+      dulceria.fold(0, (a, i) => a + i.precio * i.cantidad);
   double get total => totalEntradas + totalDulceria;
   double get totalReal => ventaCreada?.total ?? total;
 
   /// Huella de lo elegido (funcion + asientos + dulceria).
   String get firma {
-    final asientos = (butacas.map((b) => b.idAsiento).toList()..sort()).join(',');
-    final dulces = (dulceria.map((i) => '${i.id}x${i.cantidad}').toList()..sort()).join(',');
+    final asientos = (butacas.map((b) => b.idAsiento).toList()..sort()).join(
+      ',',
+    );
+    final dulces =
+        (dulceria.map((i) => '${i.id}x${i.cantidad}').toList()..sort()).join(
+          ',',
+        );
     return '${funcionSeleccionada?.idFuncion}|$asientos|$dulces';
   }
 
@@ -58,15 +64,23 @@ class CineState extends ChangeNotifier {
   /// Una compra ya pagada no cuenta: seguiria "resucitandola".
   Map<String, dynamic> contexto() {
     if (estadoCompra == EstadoCompra.completado || ventaCreada != null) {
-      return {'idPelicula': null, 'idFuncion': null, 'asientos': [], 'dulceria': []};
+      return {
+        'idPelicula': null,
+        'idFuncion': null,
+        'asientos': [],
+        'dulceria': [],
+      };
     }
     return {
       'idPelicula': peliculaSeleccionada?.idPelicula,
       'idFuncion': funcionSeleccionada?.idFuncion,
-      'asientos': butacas.map((b) => {'id': b.id, 'idAsiento': b.idAsiento}).toList(),
+      'asientos': butacas
+          .map((b) => {'id': b.id, 'idAsiento': b.idAsiento})
+          .toList(),
       'dulceria': [
         for (final i in dulceria)
-          if (int.tryParse(i.id) != null) {'idProducto': int.parse(i.id), 'cantidad': i.cantidad},
+          if (int.tryParse(i.id) != null)
+            {'idProducto': int.parse(i.id), 'cantidad': i.cantidad},
       ],
     };
   }
@@ -126,16 +140,30 @@ class CineState extends ChangeNotifier {
 
     final resultados = await Future.wait<Object?>([
       aparte(api.obtenerDisponibilidad(f.idFuncion), 'la disponibilidad'),
-      f.idPrecio == null ? Future<double?>.value(null) : aparte(api.obtenerPrecio(f.idPrecio!), 'el precio'),
+      f.idPrecio == null
+          ? Future<double?>.value(null)
+          : aparte(api.obtenerPrecio(f.idPrecio!), 'el precio'),
       aparte(api.obtenerSala(f.idSala), 'la sala'),
     ]);
     if (carga != _cargaFuncion) return;
-    disponibilidad = (resultados[0] as List<AsientoDisponibilidad>?) ?? const [];
+    disponibilidad =
+        (resultados[0] as List<AsientoDisponibilidad>?) ?? const [];
     precioUnitario = resultados[1] as double?;
     salaSeleccionada = resultados[2] as Sala?;
     // Las butacas que se eligieron antes de saber el precio (ej. las eligio el agente) toman el precio real.
     if (precioUnitario != null && butacas.any((b) => b.precio == 0)) {
-      butacas = [for (final b in butacas) b.precio == 0 ? Butaca(id: b.id, idAsiento: b.idAsiento, fila: b.fila, columna: b.columna, precio: precioUnitario!) : b];
+      butacas = [
+        for (final b in butacas)
+          b.precio == 0
+              ? Butaca(
+                  id: b.id,
+                  idAsiento: b.idAsiento,
+                  fila: b.fila,
+                  columna: b.columna,
+                  precio: precioUnitario!,
+                )
+              : b,
+      ];
     }
     cargandoDisponibilidad = false;
     notifyListeners();
@@ -154,7 +182,13 @@ class CineState extends ChangeNotifier {
     } else {
       butacas = [
         ...butacas,
-        Butaca(id: id, idAsiento: a.idAsiento, fila: a.fila, columna: a.numero, precio: precioUnitario ?? 0),
+        Butaca(
+          id: id,
+          idAsiento: a.idAsiento,
+          fila: a.fila,
+          columna: a.numero,
+          precio: precioUnitario ?? 0,
+        ),
       ];
     }
     notifyListeners();
@@ -206,7 +240,8 @@ class CineState extends ChangeNotifier {
   }
 
   /// La venta pendiente sigue valiendo si no cambio lo elegido desde que se reservo.
-  bool get pendienteVigente => ventaPendiente != null && _firmaPendiente == firma;
+  bool get pendienteVigente =>
+      ventaPendiente != null && _firmaPendiente == firma;
 
   void _soltarPendiente() {
     ventaPendiente = null;

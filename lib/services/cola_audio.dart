@@ -12,17 +12,22 @@ import 'package:audioplayers/audioplayers.dart';
 class ColaAudio {
   ColaAudio() {
     // La voz del asistente se mezcla con el microfono abierto: sin pedir foco de audio (que pausaria la grabacion).
-    _player.setAudioContext(AudioContext(
-      android: const AudioContextAndroid(
-        audioFocus: AndroidAudioFocus.none,
-        contentType: AndroidContentType.speech,
-        usageType: AndroidUsageType.media,
+    _player.setAudioContext(
+      AudioContext(
+        android: const AudioContextAndroid(
+          audioFocus: AndroidAudioFocus.none,
+          contentType: AndroidContentType.speech,
+          usageType: AndroidUsageType.media,
+        ),
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playAndRecord,
+          options: const {
+            AVAudioSessionOptions.defaultToSpeaker,
+            AVAudioSessionOptions.mixWithOthers,
+          },
+        ),
       ),
-      iOS: AudioContextIOS(
-        category: AVAudioSessionCategory.playAndRecord,
-        options: const {AVAudioSessionOptions.defaultToSpeaker, AVAudioSessionOptions.mixWithOthers},
-      ),
-    ));
+    );
     _fin = _player.onPlayerComplete.listen((_) => _alTerminar());
   }
 
@@ -40,7 +45,8 @@ class ColaAudio {
 
   void encolar(int sampleRate, Uint8List pcm) {
     if (pcm.isEmpty) return;
-    _sampleRate = sampleRate; // el servidor usa una sola tasa (la de la voz de Piper) en toda la conversacion
+    _sampleRate =
+        sampleRate; // el servidor usa una sola tasa (la de la voz de Piper) en toda la conversacion
     _pendientes.add(pcm);
     if (!_sonando) _reproducirSiguiente();
   }
@@ -60,7 +66,9 @@ class ColaAudio {
     _sonando = true;
     if (avisar) onCambio?.call(true);
     try {
-      await _player.play(BytesSource(_envolverEnWav(pcm, _sampleRate), mimeType: 'audio/wav'));
+      await _player.play(
+        BytesSource(_envolverEnWav(pcm, _sampleRate), mimeType: 'audio/wav'),
+      );
     } catch (_) {
       _alTerminar();
     }

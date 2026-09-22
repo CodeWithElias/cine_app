@@ -68,7 +68,9 @@ class AuthService {
       if (e.code == GoogleSignInExceptionCode.canceled) {
         throw AuthException('Inicio de sesión cancelado.');
       }
-      throw AuthException('No se pudo iniciar sesión con Google: ${e.description ?? e.code}');
+      throw AuthException(
+        'No se pudo iniciar sesión con Google: ${e.description ?? e.code}',
+      );
     }
 
     final idToken = cuenta.authentication.idToken;
@@ -124,7 +126,9 @@ class AuthService {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return null;
-      final payloadJson = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      final payloadJson = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
       final payload = jsonDecode(payloadJson) as Map<String, dynamic>;
       final sub = payload['sub'];
       final nombre = payload['nombre'];
@@ -132,7 +136,12 @@ class AuthService {
       if (sub is! int || nombre is! String || rol is! String) return null;
       // Un token vencido (el backend los emite por 8 horas) no sirve: se pide iniciar sesion de nuevo.
       final exp = payload['exp'];
-      if (exp is int && DateTime.fromMillisecondsSinceEpoch(exp * 1000).isBefore(DateTime.now())) return null;
+      if (exp is int &&
+          DateTime.fromMillisecondsSinceEpoch(
+            exp * 1000,
+          ).isBefore(DateTime.now())) {
+        return null;
+      }
       return Usuario(idUsuario: sub, nombre: nombre, rol: rol);
     } catch (_) {
       return null;

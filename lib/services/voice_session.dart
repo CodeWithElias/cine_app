@@ -12,7 +12,14 @@ import '../offline/sin_conexion.dart';
 import 'auth_service.dart';
 import 'cola_audio.dart';
 
-enum EstadoConversacion { apagada, conectando, escuchando, pensando, hablando, error }
+enum EstadoConversacion {
+  apagada,
+  conectando,
+  escuchando,
+  pensando,
+  hablando,
+  error,
+}
 
 /// Lo que se muestra del intercambio en curso. Se limpia solo un rato despues de
 /// que el agente termina de hablar (espejo de `TurnoVisible` de la web).
@@ -75,7 +82,8 @@ class VoiceSession extends ChangeNotifier {
   // ---- modo sin conexion: el reconocimiento, la respuesta y la voz corren en el telefono
   MotorVozLocal? _motor;
   int _ttsPendientes = 0; // frases pedidas al motor cuyo audio aun no llego
-  int _descartarVozHasta = 0; // ids de voz menores o iguales a este se ignoran (se interrumpio)
+  int _descartarVozHasta =
+      0; // ids de voz menores o iguales a este se ignoran (se interrumpio)
 
   /// true mientras la conversacion se atiende en el telefono (sin internet).
   bool modoLocal = false;
@@ -96,9 +104,13 @@ class VoiceSession extends ChangeNotifier {
   TurnoVisible turno = const TurnoVisible();
   String? error;
 
-  bool get activa => estado != EstadoConversacion.apagada && estado != EstadoConversacion.error;
+  bool get activa =>
+      estado != EstadoConversacion.apagada &&
+      estado != EstadoConversacion.error;
   bool get conversando =>
-      estado == EstadoConversacion.escuchando || estado == EstadoConversacion.pensando || estado == EstadoConversacion.hablando;
+      estado == EstadoConversacion.escuchando ||
+      estado == EstadoConversacion.pensando ||
+      estado == EstadoConversacion.hablando;
 
   void _cambiar(EstadoConversacion nuevo) {
     estado = nuevo;
@@ -108,7 +120,10 @@ class VoiceSession extends ChangeNotifier {
   // ------------------------------------------------------------------ ciclo de vida
 
   Future<void> iniciar() async {
-    if (estado != EstadoConversacion.apagada && estado != EstadoConversacion.error) return;
+    if (estado != EstadoConversacion.apagada &&
+        estado != EstadoConversacion.error) {
+      return;
+    }
     final gen = ++_generacion;
     _cerradaAProposito = false;
     _intentos = 0;
@@ -120,31 +135,41 @@ class VoiceSession extends ChangeNotifier {
 
     try {
       if (!await _grabador.hasPermission()) {
-        error = 'No se pudo acceder al micrófono. Revisa los permisos de la app.';
+        error =
+            'No se pudo acceder al micrófono. Revisa los permisos de la app.';
         _cambiar(EstadoConversacion.error);
         return;
       }
-      final flujo = await _grabador.startStream(const RecordConfig(
-        encoder: AudioEncoder.pcm16bits,
-        sampleRate: 16000,
-        numChannels: 1,
-        echoCancel: true,
-        noiseSuppress: true,
-        // Sin ganancia automatica: en el telefono sube el ruido de fondo hasta que el detector de voz lo toma por voz y
-        // Whisper "transcribe" palabras que nadie dijo.
-        autoGain: false,
-        // Fuente de audio de llamadas: el telefono le aplica su propia cancelacion de eco y de ruido (lo que usa una videollamada).
-        androidConfig: AndroidRecordConfig(audioSource: AndroidAudioSource.voiceCommunication),
-        // Por defecto el grabador se PAUSA cuando otro audio (la voz del asistente) toma el foco de audio y no se
-        // reanuda: el asistente hablaba y despues ya no te escuchaba. La conversacion es continua: nunca se pausa.
-        audioInterruption: AudioInterruptionMode.none,
-      ));
+      final flujo = await _grabador.startStream(
+        const RecordConfig(
+          encoder: AudioEncoder.pcm16bits,
+          sampleRate: 16000,
+          numChannels: 1,
+          echoCancel: true,
+          noiseSuppress: true,
+          // Sin ganancia automatica: en el telefono sube el ruido de fondo hasta que el detector de voz lo toma por voz y
+          // Whisper "transcribe" palabras que nadie dijo.
+          autoGain: false,
+          // Fuente de audio de llamadas: el telefono le aplica su propia cancelacion de eco y de ruido (lo que usa una videollamada).
+          androidConfig: AndroidRecordConfig(
+            audioSource: AndroidAudioSource.voiceCommunication,
+          ),
+          // Por defecto el grabador se PAUSA cuando otro audio (la voz del asistente) toma el foco de audio y no se
+          // reanuda: el asistente hablaba y despues ya no te escuchaba. La conversacion es continua: nunca se pausa.
+          audioInterruption: AudioInterruptionMode.none,
+        ),
+      );
       if (gen != _generacion) {
         await _grabador.stop();
         return;
       }
       _micSub = flujo.listen((trozo) {
-        if (!_listo || silenciado || _sonando || DateTime.now().isBefore(_silencioHasta)) return;
+        if (!_listo ||
+            silenciado ||
+            _sonando ||
+            DateTime.now().isBefore(_silencioHasta)) {
+          return;
+        }
         if (modoLocal) {
           _motor?.enviarAudio(trozo);
           return;
@@ -179,7 +204,9 @@ class VoiceSession extends ChangeNotifier {
     _wsSub = null;
     if (ws != null) {
       try {
-        if (ws.readyState == WebSocket.open) ws.add(jsonEncode({'type': 'bye'}));
+        if (ws.readyState == WebSocket.open) {
+          ws.add(jsonEncode({'type': 'bye'}));
+        }
         await ws.close();
       } catch (_) {}
     }
@@ -208,7 +235,9 @@ class VoiceSession extends ChangeNotifier {
 
   Future<void> _abrirSocket(int gen) async {
     try {
-      final ws = await WebSocket.connect(kVoiceWsUrl).timeout(const Duration(seconds: 8));
+      final ws = await WebSocket.connect(
+        kVoiceWsUrl,
+      ).timeout(const Duration(seconds: 8));
       if (gen != _generacion) {
         await ws.close();
         return;
@@ -251,7 +280,9 @@ class VoiceSession extends ChangeNotifier {
       _intentos++;
       reconectando = true;
       _cambiar(EstadoConversacion.conectando);
-      final espera = Duration(milliseconds: (400 * (1 << _intentos)).clamp(400, 4000));
+      final espera = Duration(
+        milliseconds: (400 * (1 << _intentos)).clamp(400, 4000),
+      );
       _reintento = Timer(espera, () {
         if (gen == _generacion) _abrirSocket(gen);
       });
@@ -260,7 +291,8 @@ class VoiceSession extends ChangeNotifier {
     _liberarAudio();
     reconectando = false;
     _limpiarTurno();
-    error = 'Se perdió la conexión con el asistente de voz. Revisa que el servicio esté encendido y vuelve a intentar.';
+    error =
+        'Se perdió la conexión con el asistente de voz. Revisa que el servicio esté encendido y vuelve a intentar.';
     _cambiar(EstadoConversacion.error);
   }
 
@@ -319,14 +351,24 @@ class VoiceSession extends ChangeNotifier {
         turno = TurnoVisible(transcript: (e['text'] as String?) ?? '');
         notifyListeners();
       case 'reply':
-        turno = TurnoVisible(transcript: turno.transcript, respuesta: (e['texto'] as String?) ?? '');
+        turno = TurnoVisible(
+          transcript: turno.transcript,
+          respuesta: (e['texto'] as String?) ?? '',
+        );
         notifyListeners();
       case 'ui_action':
-        onUiAction?.call((e['acciones'] as List?) ?? const [], (e['v'] as num?)?.toInt());
+        onUiAction?.call(
+          (e['acciones'] as List?) ?? const [],
+          (e['v'] as num?)?.toInt(),
+        );
       case 'error':
         final mensaje = (e['message'] as String?) ?? 'Ocurrió un problema.';
         error = mensaje;
-        turno = TurnoVisible(transcript: turno.transcript, respuesta: turno.respuesta, error: mensaje);
+        turno = TurnoVisible(
+          transcript: turno.transcript,
+          respuesta: turno.respuesta,
+          error: mensaje,
+        );
         notifyListeners();
     }
   }
@@ -382,7 +424,9 @@ class VoiceSession extends ChangeNotifier {
     _cambiar(EstadoConversacion.conectando);
     await _arrancarLocal(gen);
     if (modoLocal && gen == _generacion) {
-      turno = const TurnoVisible(respuesta: 'Sin conexión: sigo con el asistente del teléfono.');
+      turno = const TurnoVisible(
+        respuesta: 'Sin conexión: sigo con el asistente del teléfono.',
+      );
       notifyListeners();
       _programarReinicioTurno();
     }
@@ -398,7 +442,11 @@ class VoiceSession extends ChangeNotifier {
     motor.onTexto = _alTextoLocal;
     motor.onAudioHablado = _alAudioLocal;
     motor.onError = (mensaje) {
-      turno = TurnoVisible(transcript: turno.transcript, respuesta: turno.respuesta, error: mensaje);
+      turno = TurnoVisible(
+        transcript: turno.transcript,
+        respuesta: turno.respuesta,
+        error: mensaje,
+      );
       notifyListeners();
     };
   }
@@ -413,7 +461,9 @@ class VoiceSession extends ChangeNotifier {
     if (!modoLocal) return;
     turno = TurnoVisible(transcript: texto, respuesta: respuesta.texto);
     notifyListeners();
-    if (respuesta.acciones.isNotEmpty) onUiAction?.call(respuesta.acciones, null);
+    if (respuesta.acciones.isNotEmpty) {
+      onUiAction?.call(respuesta.acciones, null);
+    }
     _hablarLocal(respuesta.texto);
   }
 
@@ -421,7 +471,11 @@ class VoiceSession extends ChangeNotifier {
   void _hablarLocal(String texto) {
     final motor = _motor;
     if (motor == null) return;
-    final frases = RegExp(r'[^.!?¡¿]+[.!?]?').allMatches(texto).map((m) => m.group(0)!.trim()).where((f) => f.length > 1).toList();
+    final frases = RegExp(r'[^.!?¡¿]+[.!?]?')
+        .allMatches(texto)
+        .map((m) => m.group(0)!.trim())
+        .where((f) => f.length > 1)
+        .toList();
     if (frases.isEmpty) {
       _cambiar(EstadoConversacion.escuchando);
       return;
@@ -458,16 +512,22 @@ class VoiceSession extends ChangeNotifier {
 
   void _enviar(Map<String, dynamic> mensaje) {
     final ws = _ws;
-    if (ws != null && ws.readyState == WebSocket.open) ws.add(jsonEncode(mensaje));
+    if (ws != null && ws.readyState == WebSocket.open) {
+      ws.add(jsonEncode(mensaje));
+    }
   }
 
   /// Corta lo que esta diciendo el agente.
   void interrumpir() {
     _cola.vaciar();
     if (modoLocal) {
-      _descartarVozHasta = _motor?.ultimoIdVoz ?? 0; // lo que el motor todavia este generando ya no se dice
+      _descartarVozHasta =
+          _motor?.ultimoIdVoz ??
+          0; // lo que el motor todavia este generando ya no se dice
       _ttsPendientes = 0;
-      if (estado == EstadoConversacion.hablando) _cambiar(EstadoConversacion.escuchando);
+      if (estado == EstadoConversacion.hablando) {
+        _cambiar(EstadoConversacion.escuchando);
+      }
       return;
     }
     _enviar({'type': 'interrupt'});
@@ -485,9 +545,11 @@ class VoiceSession extends ChangeNotifier {
   }
 
   /// Le cuenta al agente lo que el cliente tiene marcado en pantalla. No es un turno: no se contesta.
-  void enviarContexto(int version, Map<String, dynamic> compra) => _enviar({'type': 'contexto', 'v': version, 'compra': compra});
+  void enviarContexto(int version, Map<String, dynamic> compra) =>
+      _enviar({'type': 'contexto', 'v': version, 'compra': compra});
 
-  void enviarPantalla(bool disponible) => _enviar({'type': 'pantalla', 'disponible': disponible});
+  void enviarPantalla(bool disponible) =>
+      _enviar({'type': 'pantalla', 'disponible': disponible});
 
   /// Se sabe si Stripe esta disponible (puede llegar despues de abrir la conversacion): se le avisa al agente.
   void setTarjetaDisponible(bool valor) {
@@ -497,12 +559,18 @@ class VoiceSession extends ChangeNotifier {
 
   /// Como va el formulario de tarjeta: SOLO el estado de cada campo, nunca lo escrito (eso vive en el campo seguro de
   /// Stripe). El agente guia con esto ("ahora la fecha"). No es un turno.
-  void enviarPagoCampos(int idVenta, Map<String, dynamic> campos) => _enviar({'type': 'pago_campos', 'idVenta': idVenta, 'campos': campos});
+  void enviarPagoCampos(int idVenta, Map<String, dynamic> campos) =>
+      _enviar({'type': 'pago_campos', 'idVenta': idVenta, 'campos': campos});
 
   /// Como termino el intento de pago (confirmado | rechazado | cancelado | error). El agente NO le cree a la pantalla:
   /// verifica contra el backend antes de decir "pago aceptado".
   void enviarPagoEvento(int idVenta, String evento, [String? mensaje]) =>
-      _enviar({'type': 'pago_evento', 'idVenta': idVenta, 'evento': evento, 'mensaje': ?mensaje});
+      _enviar({
+        'type': 'pago_evento',
+        'idVenta': idVenta,
+        'evento': evento,
+        'mensaje': ?mensaje,
+      });
 
   @override
   void dispose() {

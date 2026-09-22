@@ -7,8 +7,10 @@ const String _kHostNube = 'https://54-224-233-99.sslip.io';
 
 /// IP o Host por defecto. Se puede sobreescribir al compilar con:
 /// `flutter run --dart-define=HOST_IP=192.168.1.6`
-const String _kDefaultHost =
-    String.fromEnvironment('HOST_IP', defaultValue: _kHostNube);
+const String _kDefaultHost = String.fromEnvironment(
+  'HOST_IP',
+  defaultValue: _kHostNube,
+);
 
 /// Configuracion dinamica del entorno.
 ///
@@ -23,8 +25,9 @@ class AppConfig {
 
   static const _hostKey = 'lumen_host_ip';
   static String _host = _kDefaultHost;
-  static final ValueNotifier<String> hostNotifier =
-      ValueNotifier<String>(_host);
+  static final ValueNotifier<String> hostNotifier = ValueNotifier<String>(
+    _host,
+  );
 
   /// Carga la IP guardada previamente en el dispositivo.
   static Future<void> init() async {
